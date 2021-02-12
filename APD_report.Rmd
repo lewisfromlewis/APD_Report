@@ -21,6 +21,7 @@ library(tidyverse)
 library(readxl)
 library(lubridate)
 library(ggnewscale)
+library(gridExtra)
 # invalidate cache when the tufte version changes
 knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
@@ -197,7 +198,7 @@ cols_APD <- cols(
    )
 
 # read it in as the object called APD, which will appear in the Data window
-APD <- read_csv("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.csv", na = c("", "NA", "NULL"), col_types = cols_APD)
+APD <- read_csv("./COMET-Extract-APD.csv", na = c("", "NA", "NULL"), col_types = cols_APD)
 # Here is the behaviour of the Excel option without specifying types. Expect all numerical values to be classed as Character, and the col_types argument doesn't behave the same in readxl:: (wants a character) as in readr:: (wants a list)
 
 #APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
@@ -246,35 +247,32 @@ cum_occ <- rep(0, length(Patient_movements$Event)); for(i in seq_along(Patient_m
 }
 
 # Cumulative Intensity Weighted Occupancy, a simple (and simplistic?) transformation multiplying the value of each event by the _admission_ ANZROD
-IWO <- rep(0, length(Patient_movements$Event)); for(i in seq_along(Patient_movements$Event)){
+IWtO <- rep(0, length(Patient_movements$Event)); for(i in seq_along(Patient_movements$Event)){
    if(i == 1)
-      {IWO <- Patient_movements$ANZROD[i]}
+      {IWtO <- Patient_movements$ANZROD[i]}
    else if(is.na(Patient_movements$ANZROD[i]))
-      {IWO[i] <- IWO[i-1]}
+      {IWtO[i] <- IWtO[i-1]}
    else if(Patient_movements$Event[i] == "Admit")
-      {IWO[i] = IWO[i-1]+Patient_movements$ANZROD[i]}
+      {IWtO[i] = IWtO[i-1]+Patient_movements$ANZROD[i]}
    else if(Patient_movements$Event[i] == "Discharge")
-   {IWO[i] = IWO[i-1]-Patient_movements$ANZROD[i]} 
+   {IWtO[i] = IWtO[i-1]-Patient_movements$ANZROD[i]} 
 }
 
 Patient_movements <- Patient_movements %>% 
-   mutate(Occupancy = cum_occ, IntensityWtOcc = IWO)
+   mutate(Occupancy = cum_occ, IWO = IWtO)
 
 Moves_plot <- ggplot(Patient_movements, mapping = aes(x=Time, y=Occupancy))
 
 Weight_moves_plot <- ggplot(Patient_movements, mapping = aes(x = Time))
-Weight_moves_plot + 
-   geom_line(aes(y = Occupancy), colour = "grey") + 
-   geom_line(aes(y = IntensityWtOcc-mean(IntensityWtOcc)+mean(Occupancy)), colour = "red", alpha = 0.5) + 
-   geom_smooth(aes(y = IntensityWtOcc-mean(IntensityWtOcc)+mean(Occupancy)), colour = "pink", alpha = 0.5) +
-   labs(title = "Intensity Weighted Occupancy",
-        y = "Occupancy") 
-   
+
 ```
 
-```{r fig-margin, fig.margin = TRUE, fig.cap = "Instantateous occupancy over the period.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE}
+```{r fig-margin, fig.margin = TRUE, fig.cap = "Instantateous occupancy over the period.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE, warning=FALSE}
 Moves_plot + 
-   geom_line()
+   geom_line(colour = "darkgray") +
+   theme(panel.background = element_blank()) +
+   labs(title = "Instantaneous Occupancy",
+        y = "Occupancy") 
 ```
 
 ## Intensity weighted occupancy 
@@ -293,24 +291,43 @@ occupancy_intensity +
                            ymax = rank(ICU_ADM_DTM)+(40*ANZROD), 
                            fill= ANZROD,
                            alpha = 0.1)) +
-   labs(title = "Intensity weighted admission rate",
-        legend = "Try",
-        x = "Time spent in ICU",
-        y = "Admission date",
+   labs(title = "Individual severity plot",
+        subtitle = "Height and colour both indicate severity",
+        x = "Length of bar is time spent in ICU",
+        y = "Admission number",
         fill = "Severity on admission",
         alpha = "Transparency")
 ```
+The gaps and overlaps give an idea of when it was busy, and the height and brightness of the bars give an idea of how sick each patient was on admission. 
 
-A summary version of this information is to plot occupancy weighted numerically for the admission ANZROD score, as below.
+Now the occupancy can be numerically weighted for the admission ANZROD score. This is very simplistic, but gives a granular summary of numbers combined with severity. In the plots below, firstly the occupancy is weighted for the severity of illness of the patients who are occupying the beds. The resulting intensity-weighted occupancy is then plotted over the raw occupancy, balanced so they display the same mean value. Then a locally weighted estimate is applied to show the deterministic portion of the trend over time. In simple language, it smooths the instantaneous data to draw the eye to trends. 
 
 ```{r echo = FALSE, message = FALSE, warning=FALSE}
-Intensity_weighted_plot <- ggplot(Patient_movements, mapping = aes(x=Time, y=IWO)) + geom_density()
-Intensity_weighted_plot
+# Superimpose the occupancy and the intensity weighted occupancy 
+IWO_plot <- Weight_moves_plot + 
+   geom_line(aes(y = Occupancy), colour = "grey") + 
+   geom_line(aes(y = IWO-mean(IWO)+mean(Occupancy)), colour = "red", alpha = 0.5) + 
+   labs(title = "Intensity Weighted Occupancy",
+        subtitle = "Raw and IWO overplotted",
+        y = "Mean-balanced occupancy") 
+
+# Now also superimpose the lowess smoother with 95% CI 
+IWO_smooth_plot <- Weight_moves_plot + 
+   geom_line(aes(y = Occupancy), colour = "grey") + 
+   geom_line(aes(y = IWO-mean(IWO)+mean(Occupancy)), colour = "red", alpha = 0.5) + 
+   geom_smooth(aes(y = IWO-mean(IWO)+mean(Occupancy)), colour = "purple", alpha = 0.5) +
+   geom_smooth(aes(y = Occupancy), colour = "gray", alpha = 0.5) +
+   labs(title = "Intensity Weighted Occupancy",
+        subtitle = "Raw and IWO occupancy with smoothing",
+        y = "Mean-balanced occupancy") 
+
+# arrange these two plots side by side - in a grid with 1 row - for comparison 
+grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 ```
 
 ## Stratified by ICU outcome 
 
-This plot repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death among those who actually went on to die against the prediction of the algorithm is displayed in the deepest red to emphasise those patients. 
+This slightly busy plot has another purpose. It repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death is displayed in the deepest red, to emphasise those patients who went on to die against the prediction of the algorithm, who will appear as short bright bars. These outcomes are distressing and often raise the question of whether they could have been prevented. 
 
 ```{r echo = FALSE, message = FALSE, warning=FALSE}
 # This overlaps all the patient stays, colouring by outcome with density of colour by ANZROD 
@@ -322,19 +339,25 @@ occupancy_intensity +
    geom_rect(data = APD %>% filter(ICUOutcome=='Died'), mapping = aes(xmin = ICU_ADM_DTM, xmax = ICU_DIS_DTM, ymin = 0, ymax = ANZROD, fill = ANZROD, alpha = 0.05)) + 
    scale_fill_continuous(low="red", high="hotpink2") +
    labs(fill = "ANZROD if died") +
-   theme(axis.text.y = element_blank())
+   theme(axis.text.y = element_blank()) +
+   guides(guide_legend(alpha = element_blank()))
 
 
 ```
 
-Over this period, the ANZROD predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`, whereas in survivors the median predicted risk of death was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`. 
+Over this period, the ANZROD predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`, whereas in survivors the median predicted risk of death was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`, as shown in the margin table. 
+
+```{r echo = FALSE, message = FALSE, warning=FALSE}
+
+
+```
 
 ## Subsets of admissions 
 
 The count of certain admission diagnoses or clinical features can be shown in the context of all admissions. Here, the code is displayed. Simply alter the code with logical operators to display a different subset of patients.
 
 
-```{r}
+```{r echo = FALSE, message = FALSE, warning=FALSE}
 
 
 ```
