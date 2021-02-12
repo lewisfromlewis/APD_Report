@@ -18,3 +18,4 @@ In the base scenario we start with an introduction describing the total patient 
 
 ## The plan 
 It would be nice to serve this up as a Shiny app. Maybe at the weekend ...
+_or maybe not_
