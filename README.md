@@ -17,5 +17,4 @@ This project started as a repository for the instructions to turn the APD output
 In the base scenario we start with an introduction describing the total patient cohort over the period, with some slightly novel visualisations. There is also some skeleton code for subgroups, along with basic summary statistics or exploratory visualisation. 
 
 ## The plan 
-It would be nice to serve this up as a Shiny app. Maybe at the weekend ...
-_or maybe not_
+It would be nice to serve this up as a Shiny app. Maybe at the weekend ... 
