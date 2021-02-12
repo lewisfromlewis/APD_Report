@@ -1,0 +1,343 @@
+---
+title: "APD report"
+subtitle: "Template for data reading and cleaning from the ANZICS APD"
+author: "Lewis Campbell"
+date: "`r Sys.Date()`"
+output:
+  tufte::tufte_html: default
+  tufte::tufte_handout:
+    citation_package: natbib
+    latex_engine: xelatex
+  tufte::tufte_book:
+    citation_package: natbib
+    latex_engine: xelatex
+bibliography: 
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+library(tufte)
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(ggnewscale)
+# invalidate cache when the tufte version changes
+knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
+options(htmltools.dir.version = FALSE)
+```
+
+```{r cleaning, echo=FALSE, message=FALSE}
+# Ctrl+C Copy the folder path in the directory then use this:
+writeClipboard(gsub("\\\\", "/", readClipboard()))
+
+
+# Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified. If one column parses properly in csv and Excel it can be left out, but just...don't.
+cols_APD <- cols(
+   APD_Inclusion = col_character(),
+   ANZROD_Inclusion = col_character(),
+   APACHE3_Inclusion = col_character(),
+   `HRN/NIH` = col_character(),
+   PatientId = col_character(),
+   FirstName = col_character(),
+   LastName = col_character(),
+   Address = col_character(),
+   Suburb = col_character(),
+   State = col_character(),
+   Country = col_character(),
+   Postcode = col_character(),
+   SLK = col_character(),
+   AgeICU = col_double(),
+   AgeHosp = col_double(),
+   DOB = col_date(format = "%d/%m/%Y"),
+   Sex = col_character(),
+   Indigenous = col_character(),
+   Ethnicity = col_character(),
+   EthnicityOther = col_logical(),
+   Height = col_double(),
+   Weight = col_double(),
+   CareUnitAdmID = col_character(),
+   CareUnit = col_character(),
+   CareType = col_character(),
+   YearAdm = col_double(),
+   FYAdm = col_double(),
+   MonthYearAdm = col_integer(),
+   HOSP_ADM_DTM = col_datetime(format = "%d/%m/%Y %H:%M:%S"),
+   HOSP_DIS_DTM = col_datetime(format = "%d/%m/%Y %H:%M:%S"),
+   ICU_ADM_DTM = col_datetime(format = "%d/%m/%Y %H:%M:%S"),
+   ICU_DIS_DTM = col_datetime(format = "%d/%m/%Y %H:%M:%S"),
+   ICU_DIS_DEC_DTM = col_datetime(format = "%d/%m/%Y %H:%M:%S"),
+   ICU_ADM_DT = col_date(format = "%d/%m/%Y"),
+   ICU_ADM_TM = col_time(format = ""),
+   ICU_DS_DT = col_date(format = "%d/%m/%Y"),
+   ICU_DS_TM = col_time(format = ""),
+   ReadmissionLagHours = col_double(),
+   ICUadm_count = col_double(),
+   ICUSource = col_character(),
+   ICULOS = col_double(),
+   LongStay_7 = col_character(),
+   LongStay_14 = col_character(),
+   ICUOutcome = col_character(),
+   DiedICU = col_character(),
+   HOSLOS = col_double(),
+   HospitalSource = col_character(),
+   TransferredFrom = col_character(),
+   HospitalOutcome = col_character(),
+   TransferredTo = col_character(),
+   DiedHospital = col_character(),
+   DataComplete = col_character(),
+   APACHEDiagnosis = col_double(),
+   APACHEDiagText = col_character(),
+   APACHESubcode = col_double(),
+   APACHECategory = col_character(),
+   Med_Surg = col_character(),
+   AP2score = col_double(),
+   AP3score = col_double(),
+   AP3ROD = col_double(),
+   ANZROD = col_double(),
+   ICUAdmission = col_character(),
+   ReadmissionEpisode = col_double(),
+   ElectiveSurg = col_character(),
+   PlannedAdm = col_character(),
+   METAdm = col_character(),
+   PregStatus = col_character(),
+   ThromboPro = col_character(),
+   TreatmentGoals = col_character(),
+   SmokingStatus = col_character(),
+   AfterhoursDis = col_character(),
+   ExitBlockHrs = col_double(),
+   GCSDateTime = col_character(),
+   GCS = col_integer(),
+   GCSEye = col_integer(),
+   GCSVerb = col_integer(),
+   GCSMotor = col_integer(),
+   GCSSedated = col_integer(),
+   CardArrest = col_character(),
+   Diabetes = col_character(),
+   Frailty = col_character(),
+   Delirium = col_character(),
+   PressureInjury = col_character(),
+   ARF = col_character(),
+   ChronicRespiratory = col_character(),
+   ChronicCardiovascular = col_character(),
+   Cirrhosis = col_character(),
+   ChronicRenal = col_character(),
+   ImmuneDisease = col_character(),
+   ImmunoSuppressed = col_character(),
+   AIDS = col_character(),
+   HepaticFailure = col_character(),
+   Lymphoma = col_character(),
+   MetastaticCancer = col_character(),
+   Leukaemia = col_character(),
+   CABGGraft = col_logical(),
+   CABGRedo = col_logical(),
+   AMIThromboTher = col_character(),
+   ECMO = col_character(),
+   Inotropes = col_character(),
+   InvVent = col_character(),
+   NIVVent = col_character(),
+   RenalRep = col_character(),
+   Trachestomy = col_character(),
+   INVDayOne = col_character(),
+   INV_Hrs = col_double(),
+   NIV_Hrs = col_double(),
+   HFNC_Hrs = col_double(),
+   PT_identifier = col_logical(),
+   HOSP_identifier = col_character(),
+   ICU_identifier = col_logical(),
+   ALBUMHI = col_double(),
+   ALBUMLO = col_double(),
+   AP3FIO = col_double(),
+   AP3PO2 = col_double(),
+   AP3CO2O = col_double(),
+   AP3PH = col_double(),
+   Intubated = col_character(),
+   BILI = col_double(),
+   CREATHI = col_double(),
+   CREATLO = col_double(),
+   DIASTOLICHI = col_double(),
+   DIASTOLICLO = col_double(),
+   FIO2 = col_double(),
+   PAO2 = col_double(),
+   PACO2 = col_double(),
+   PH = col_double(),
+   GLUCHI = col_double(),
+   GLUCLO = col_double(),
+   HCO3HI = col_double(),
+   HCO3LO = col_double(),
+   HCTHI = col_double(),
+   HCTLO = col_double(),
+   HMGNHI = col_double(),
+   HMGNLO = col_double(),
+   HRHI = col_double(),
+   HRLO = col_double(),
+   KHI = col_double(),
+   KLO = col_double(),
+   LACTATE = col_double(),
+   MAPHI = col_double(),
+   MAPLO = col_double(),
+   NAHI = col_double(),
+   NALO = col_double(),
+   RRHI = col_double(),
+   RRHI_VENT = col_character(),
+   RRLO = col_double(),
+   RRLO_VENT = col_character(),
+   SYSTOLICHI = col_double(),
+   SYSTOLICLO = col_double(),
+   TEMPHI = col_double(),
+   TEMPLO = col_double(),
+   PLATHI = col_double(),
+   PLATLO = col_double(),
+   UREA = col_double(),
+   WCCHI = col_double(),
+   WCCLO = col_double(),
+   URINEOP = col_double(),
+   FreeVoiding = col_character(),
+   PatientEntityId = col_character(),
+   HospitalAdmissionEntityId = col_character()
+   )
+
+# read it in as the object called APD, which will appear in the Data window
+APD <- read_csv("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.csv", na = c("", "NA", "NULL"), col_types = cols_APD)
+# Here is the behaviour of the Excel option without specifying types. Expect all numerical values to be classed as Character, and the col_types argument doesn't behave the same in readxl:: (wants a character) as in readr:: (wants a list)
+
+#APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
+#str(APD_excel_test)
+
+# and check for the numbers of certain diagnoses: head injury with
+#sum(APD$APACHEDiagnosis %in% c("601" , "1601"))
+# The use of Yes and No for logical vectors. Hard to fix these. The basic command is recode(illogical_string, `Yes` = TRUE, `No` = FALSE). This command uses a pipe %>% to send the object to the next function, then mutate() to change the content of a column. It's scoped with across(), to mutate across all the named columns, 
+
+APD <- APD %>% 
+   mutate(across(c(Indigenous, ElectiveSurg:METAdm, AfterhoursDis, Delirium:Leukaemia, ECMO:INVDayOne, CardArrest, Intubated, FreeVoiding), ~recode(., `Yes` = TRUE, `No` = FALSE, `Contraindicated` = TRUE, `NotIndicated` = TRUE, `Died` = TRUE, `Survived` = FALSE, .default = NA)))
+
+```
+
+# Introduction
+
+The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated anylses. This analysis was run on `r Sys.Date()`. We start with an introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`. Later sections answer the question, "what is the need and feasibility for an ECMO service at Royal Darwin Hospital?".
+
+## Numbers of patients 
+Over the period there were `r length(APD$SLK)` admissions, of `r length(unique(APD$SLK))` individuals. The weekly admission rate is shown below, and the instantaneous occupancy, changing at the moment of each admission or discharge, is in the margin.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+admission_rate <- ggplot(APD, mapping = aes(x=ICU_ADM_DTM))
+
+admission_rate + geom_histogram(fill = "pink", alpha = 0.9, show.legend = FALSE)+
+   labs(title = "Admission rate over the period",
+        x = "Admission date",
+        y = "Admissions per week")
+   
+```
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+# Writes a data frame containing an ordered list of times, with the type of each time, and a running total which is +1 for each admission time and -1 for each discharge time
+Patient_movements <- APD %>% 
+   select(PatientId, Admit = ICU_ADM_DTM, Discharge = ICU_DIS_DTM, ANZROD = ANZROD) %>% 
+   gather(key = "Event", value = "Time", -PatientId, -ANZROD) %>% 
+   arrange(Time)  
+# Cumulative occupancy, changes instantaneously with every admission or discharge event 
+cum_occ <- rep(0, length(Patient_movements$Event)); for(i in seq_along(Patient_movements$Event)){
+   if(i == 1)
+   {cum_occ <- 1}
+   else if(Patient_movements$Event[i] == "Admit")
+      {cum_occ[i] = cum_occ[i-1]+1}
+   else if(Patient_movements$Event[i] == "Discharge")
+   {cum_occ[i] = cum_occ[i-1]-1} 
+}
+
+# Cumulative Intensity Weighted Occupancy, a simple (and simplistic?) transformation multiplying the value of each event by the _admission_ ANZROD
+IWO <- rep(0, length(Patient_movements$Event)); for(i in seq_along(Patient_movements$Event)){
+   if(i == 1)
+      {IWO <- Patient_movements$ANZROD[i]}
+   else if(is.na(Patient_movements$ANZROD[i]))
+      {IWO[i] <- IWO[i-1]}
+   else if(Patient_movements$Event[i] == "Admit")
+      {IWO[i] = IWO[i-1]+Patient_movements$ANZROD[i]}
+   else if(Patient_movements$Event[i] == "Discharge")
+   {IWO[i] = IWO[i-1]-Patient_movements$ANZROD[i]} 
+}
+
+Patient_movements <- Patient_movements %>% 
+   mutate(Occupancy = cum_occ, IntensityWtOcc = IWO)
+
+Moves_plot <- ggplot(Patient_movements, mapping = aes(x=Time, y=Occupancy))
+
+Weight_moves_plot <- ggplot(Patient_movements, mapping = aes(x = Time))
+Weight_moves_plot + 
+   geom_line(aes(y = Occupancy), colour = "grey") + 
+   geom_line(aes(y = IntensityWtOcc-mean(IntensityWtOcc)+mean(Occupancy)), colour = "red", alpha = 0.5) + 
+   geom_smooth(aes(y = IntensityWtOcc-mean(IntensityWtOcc)+mean(Occupancy)), colour = "pink", alpha = 0.5) +
+   labs(title = "Intensity Weighted Occupancy",
+        y = "Occupancy") 
+   
+```
+
+```{r fig-margin, fig.margin = TRUE, fig.cap = "Instantateous occupancy over the period.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE}
+Moves_plot + 
+   geom_line()
+```
+
+## Intensity weighted occupancy 
+
+`r newthought('The admission rate tells part of the story')`, but sicker patients need more intense care. The severity score on admission tells a little more of the story. Each bar is an individual patient admission. The vertical height of the bars is equal to the predicted risk of death on admission, and the horizontal width is the length of the admission. Transparency is set at 0.1 to allow overlapping bars to be seen. This gives a good qualitative view of how many very sick patients were admitted at a time, or "Intensity weighted bed occupancy". The rest of the story about treatment intensity can only be told with daily data, which we don't compile. 
+
+```{r echo = FALSE, message = FALSE, warning=FALSE}
+# Patients sequentially represented on the y axis with the length of bar indicating length of stay
+
+occupancy_intensity <- ggplot(data = APD)
+
+occupancy_intensity +
+   geom_rect(mapping = aes(xmin = ICU_ADM_DTM, 
+                           xmax = ICU_DIS_DTM, 
+                           ymin = rank(ICU_ADM_DTM), 
+                           ymax = rank(ICU_ADM_DTM)+(40*ANZROD), 
+                           fill= ANZROD,
+                           alpha = 0.1)) +
+   labs(title = "Intensity weighted admission rate",
+        legend = "Try",
+        x = "Time spent in ICU",
+        y = "Admission date",
+        fill = "Severity on admission",
+        alpha = "Transparency")
+```
+
+A summary version of this information is to plot occupancy weighted numerically for the admission ANZROD score, as below.
+
+```{r echo = FALSE, message = FALSE, warning=FALSE}
+Intensity_weighted_plot <- ggplot(Patient_movements, mapping = aes(x=Time, y=IWO)) + geom_density()
+Intensity_weighted_plot
+```
+
+## Stratified by ICU outcome 
+
+This plot repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death among those who actually went on to die against the prediction of the algorithm is displayed in the deepest red to emphasise those patients. 
+
+```{r echo = FALSE, message = FALSE, warning=FALSE}
+# This overlaps all the patient stays, colouring by outcome with density of colour by ANZROD 
+occupancy_intensity +
+   geom_rect(data = APD %>% filter(ICUOutcome!='Died'), mapping = aes(xmin = ICU_ADM_DTM, xmax = ICU_DIS_DTM, ymin = 0, ymax = ANZROD, fill = ANZROD, alpha = 0.05)) + 
+   scale_fill_continuous(low="azure", high="blue2") +
+   labs(title = "Intensity weighted bed occupancy", fill = "ANZROD if survived") +    
+   new_scale_fill() + 
+   geom_rect(data = APD %>% filter(ICUOutcome=='Died'), mapping = aes(xmin = ICU_ADM_DTM, xmax = ICU_DIS_DTM, ymin = 0, ymax = ANZROD, fill = ANZROD, alpha = 0.05)) + 
+   scale_fill_continuous(low="red", high="hotpink2") +
+   labs(fill = "ANZROD if died") +
+   theme(axis.text.y = element_blank())
+
+
+```
+
+Over this period, the ANZROD predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`, whereas in survivors the median predicted risk of death was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`. 
+
+## Subsets of admissions 
+
+The count of certain admission diagnoses or clinical features can be shown in the context of all admissions. Here, the code is displayed. Simply alter the code with logical operators to display a different subset of patients.
+
+
+```{r}
+
+
+```
+
+
+
