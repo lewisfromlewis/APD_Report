@@ -17,6 +17,7 @@ link-citations: yes
 
 ```{r setup, include=FALSE}
 library(tufte)
+library(knitr)
 library(tidyverse)
 library(readxl)
 library(lubridate)
@@ -325,7 +326,7 @@ IWO_smooth_plot <- Weight_moves_plot +
 grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 ```
 
-## Stratified by ICU outcome 
+## ANZROD stratified by outcome 
 
 This slightly busy plot has another purpose. It repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death is displayed in the deepest red, to emphasise those patients who went on to die against the prediction of the algorithm, who will appear as short bright bars. These outcomes are distressing and often raise the question of whether they could have been prevented. 
 
@@ -347,15 +348,23 @@ occupancy_intensity +
 
 Over this period, the ANZROD predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`, whereas in survivors the median predicted risk of death was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`, as shown in the margin table. 
 
-```{r echo = FALSE, message = FALSE, warning=FALSE}
-
-
+```{r fig-margin, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
+ANZROD_by_outcome <- kable(APD %>% 
+   group_by(ICUOutcome) %>% 
+   summarise("Mean ANZROD" = paste(
+      round(mean(ANZROD, na.rm=T), 2),
+      "+/-", 
+      round(sd(ANZROD, na.rm=T), 2), 
+      sep = " ")
+      ),
+   caption = "Algorithmically predicted mortality for each category of ICU outcome"
+   )
+mar
 ```
 
 ## Subsets of admissions 
 
 The count of certain admission diagnoses or clinical features can be shown in the context of all admissions. Here, the code is displayed. Simply alter the code with logical operators to display a different subset of patients.
-
 
 ```{r echo = FALSE, message = FALSE, warning=FALSE}
 
