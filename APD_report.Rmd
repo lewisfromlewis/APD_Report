@@ -29,11 +29,10 @@ options(htmltools.dir.version = FALSE)
 ```
 
 ```{r cleaning, echo=FALSE, message=FALSE}
-# Ctrl+C Copy the folder path in the directory then use this:
-writeClipboard(gsub("\\\\", "/", readClipboard()))
-
-
 # Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified. If one column parses properly in csv and Excel it can be left out, but just...don't.
+
+# First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). 
+
 cols_APD <- cols(
    APD_Inclusion = col_character(),
    ANZROD_Inclusion = col_character(),
@@ -198,8 +197,11 @@ cols_APD <- cols(
    HospitalAdmissionEntityId = col_character()
    )
 
+# Ctrl+C Copy the folder path for the csv file in the directory then use this:
+# writeClipboard(gsub("\\\\", "/", readClipboard()))
+# Then paste the clipboard contents into the "file" entry in the call to read_csv below
 # read it in as the object called APD, which will appear in the Data window
-APD <- read_csv("./COMET-Extract-APD.csv", na = c("", "NA", "NULL"), col_types = cols_APD)
+APD <- read_csv(file = "./COMET-Extract-APD.csv", na = c("", "NA", "NULL"), col_types = cols_APD)
 # Here is the behaviour of the Excel option without specifying types. Expect all numerical values to be classed as Character, and the col_types argument doesn't behave the same in readxl:: (wants a character) as in readr:: (wants a list)
 
 #APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
@@ -268,7 +270,7 @@ Weight_moves_plot <- ggplot(Patient_movements, mapping = aes(x = Time))
 
 ```
 
-```{r fig-margin, fig.margin = TRUE, fig.cap = "Instantateous occupancy over the period.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE, warning=FALSE}
+```{r Moves.plot, fig.margin = TRUE, fig.cap = "Instantaneous occupancy over the period.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE, warning=FALSE, echo = FALSE}
 Moves_plot + 
    geom_line(colour = "darkgray") +
    theme(panel.background = element_blank()) +
@@ -280,7 +282,7 @@ Moves_plot +
 
 `r newthought('The admission rate tells part of the story')`, but sicker patients need more intense care. The severity score on admission tells a little more of the story. Each bar is an individual patient admission. The vertical height of the bars is equal to the predicted risk of death on admission, and the horizontal width is the length of the admission. Transparency is set at 0.1 to allow overlapping bars to be seen. This gives a good qualitative view of how many very sick patients were admitted at a time, or "Intensity weighted bed occupancy". The rest of the story about treatment intensity can only be told with daily data, which we don't compile. 
 
-```{r echo = FALSE, message = FALSE, warning=FALSE}
+```{r Admission-severity, fig.fullwidth = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
 # Patients sequentially represented on the y axis with the length of bar indicating length of stay
 
 occupancy_intensity <- ggplot(data = APD)
@@ -317,7 +319,7 @@ IWO_smooth_plot <- Weight_moves_plot +
    geom_line(aes(y = Occupancy), colour = "grey") + 
    geom_line(aes(y = IWO-mean(IWO)+mean(Occupancy)), colour = "red", alpha = 0.5) + 
    geom_smooth(aes(y = IWO-mean(IWO)+mean(Occupancy)), colour = "purple", alpha = 0.5) +
-   geom_smooth(aes(y = Occupancy), colour = "gray", alpha = 0.5) +
+   geom_smooth(aes(y = Occupancy), colour = "grey40", alpha = 0.5) +
    labs(title = "Intensity Weighted Occupancy",
         subtitle = "Raw and IWO occupancy with smoothing",
         y = "Mean-balanced occupancy") 
@@ -328,14 +330,16 @@ grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 
 ## ANZROD stratified by outcome 
 
-This slightly busy plot has another purpose. It repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death is displayed in the deepest red, to emphasise those patients who went on to die against the prediction of the algorithm, who will appear as short bright bars. These outcomes are distressing and often raise the question of whether they could have been prevented. 
+This slightly busy plot has another purpose. It repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death is displayed in the deepest red, to emphasise those patients who went on to die against the prediction of the algorithm, who will appear as **short bright bars**. These outcomes are distressing and often raise the question of whether they could have been prevented. 
 
-```{r echo = FALSE, message = FALSE, warning=FALSE}
+```{r echo = FALSE, message = FALSE, warning=FALSE, fig.cap = "Short bright red bars suggest an ICU death in a patient with a low predicted mortality and brief ICU stay before death."}
 # This overlaps all the patient stays, colouring by outcome with density of colour by ANZROD 
 occupancy_intensity +
    geom_rect(data = APD %>% filter(ICUOutcome!='Died'), mapping = aes(xmin = ICU_ADM_DTM, xmax = ICU_DIS_DTM, ymin = 0, ymax = ANZROD, fill = ANZROD, alpha = 0.05)) + 
    scale_fill_continuous(low="azure", high="blue2") +
-   labs(title = "Intensity weighted bed occupancy", fill = "ANZROD if survived") +    
+   labs(title = "Intensity weighted bed occupancy", 
+        subtitle = "Stratified by outcome of ICU admission",
+        fill = "ANZROD if survived") +    
    new_scale_fill() + 
    geom_rect(data = APD %>% filter(ICUOutcome=='Died'), mapping = aes(xmin = ICU_ADM_DTM, xmax = ICU_DIS_DTM, ymin = 0, ymax = ANZROD, fill = ANZROD, alpha = 0.05)) + 
    scale_fill_continuous(low="red", high="hotpink2") +
@@ -346,30 +350,63 @@ occupancy_intensity +
 
 ```
 
-Over this period, the ANZROD predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`, whereas in survivors the median predicted risk of death was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`, as shown in the margin table. 
+Over this period, the table below shows the ANZROD-predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`, whereas in survivors the median predicted risk of death was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`, as shown in the table below. 
 
-```{r fig-margin, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
+```{r ANZROD_by_outcome-table, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
 ANZROD_by_outcome <- kable(APD %>% 
    group_by(ICUOutcome) %>% 
    summarise("Mean ANZROD" = paste(
-      round(mean(ANZROD, na.rm=T), 2),
+      round(median(ANZROD, na.rm=T), 2),
       "+/-", 
-      round(sd(ANZROD, na.rm=T), 2), 
+      round(IQR(ANZROD, na.rm=T)/2, 2), 
       sep = " ")
       ),
-   caption = "Algorithmically predicted mortality for each category of ICU outcome"
+   caption = "Algorithmically predicted mortality for each category of ICU outcome during the period. Median and interquartile range are shown. The range is wide where few patients are in that category, or where the mortality predictions for each patient were very divergent."
    )
-mar
+ANZROD_by_outcome
 ```
 
 ## Subsets of admissions 
 
-The count of certain admission diagnoses or clinical features can be shown in the context of all admissions. Here, the code is displayed. Simply alter the code with logical operators to display a different subset of patients.
+The count of certain admission diagnoses or clinical features can be shown in the context of all admissions. Here, cardiovascular admissions are displayed. The first code returns the diagnostic category numbers for any diagnoses admitted during the period. Use these to fill in the second bit of code with the diagnostic categories you're interested in.
+
+```{r APACHE.categories, fig.margin = TRUE, message = FALSE, warning = FALSE, echo = FALSE}
+#retrieves the categories present in the dataset 
+levels(as.factor(APD$APACHECategory))
+```
+
+```{r Diagnosis_admissions, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
+#plots stacked bar charts for the total and group specific admissions. Use the numbers in the concatenation brackets (the ones inside `c(...)`) to mark the ones you want displayed. 
+ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% c(101:111, 1202:1213)))) + 
+   geom_histogram() +
+   labs(y = "Admissions per week",
+        x = "Admission date",
+        fill = "Cardiovascular admission?") + 
+   scale_fill_brewer(palette = "Pastel2")
+```
+
+The full admission numbers over the period are also displayed in the table below, with actual ICU mortality and predicted mortality by the ANZROD algorithm. 
+
+```{r echo = FALSE, message = FALSE, warning=FALSE}
+# Manipulates the data for the period directly. Use the commented-out filter (by removing the hash before the %>% signs) to return only the ones where there were any actual deaths.
+
+APDmortality <- APD %>% select(PatientId, APACHECategory, ANZROD, ICUOutcome) %>% mutate(Mortality = as.numeric(ICUOutcome=="Died")) %>% group_by(APACHECategory) %>%  summarise("Admissions" = n(), "Observed Mortality" = round(mean(Mortality), 3), "ANZROD Predicted Mortality" = round(mean(ANZROD, na.rm=T), 3)) #%>% filter(`Observed Mortality` > 0.001)
+
+kable(APDmortality)
+```
+
+# Today's question 
+
+**How many patients are likely to benefit from ECMO retrieval?** 
+
+This question can't be directly answered with retrospective data. There may be patients who survived but with impairments that could have been prevented with more aggressively lung protective ventilation. There may be patients who were considered unsalvageable and were not even referred for consideration of ICU. There may be patients who are listed with one top line diagnosis but who also had a condition amenable to mechanical circulatory or ventilatory support. 
+
+As a starting point, however, we chose the following filters: 
+    1 Worst P:F ratio <150 mmHg / atm OR 
+    2 Cardiac failure admission diagnosis AND 
+    3 Died in ICU OR 
+    4 Transferred to another hospital ICU 
 
 ```{r echo = FALSE, message = FALSE, warning=FALSE}
 
-
 ```
-
-
-
