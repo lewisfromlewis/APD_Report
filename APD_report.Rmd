@@ -212,7 +212,11 @@ APD <- read_csv(file = "./COMET-Extract-APD.csv", na = c("", "NA", "NULL"), col_
 # The use of Yes and No for logical vectors. Hard to fix these. The basic command is recode(illogical_string, `Yes` = TRUE, `No` = FALSE). This command uses a pipe %>% to send the object to the next function, then mutate() to change the content of a column. It's scoped with across(), to mutate across all the named columns, 
 
 APD <- APD %>% 
-   mutate(across(c(Indigenous, ElectiveSurg:METAdm, AfterhoursDis, Delirium:Leukaemia, ECMO:INVDayOne, CardArrest, Intubated, FreeVoiding), ~recode(., `Yes` = TRUE, `No` = FALSE, `Contraindicated` = TRUE, `NotIndicated` = TRUE, `Died` = TRUE, `Survived` = FALSE, .default = NA)))
+   mutate(across(c(Indigenous, ElectiveSurg:METAdm, AfterhoursDis, Delirium:Leukaemia, ECMO:INVDayOne, CardArrest, Intubated, FreeVoiding), ~recode(., `Yes` = TRUE, `No` = FALSE, `Contraindicated` = TRUE, `NotIndicated` = TRUE, `Died` = TRUE, `Survived` = FALSE, .default = NA))) %>% mutate(PF = AP3PO2/AP3FIO)
+
+# Manipulates the data for the period directly. Use the commented-out filter (by removing the hash before the %>% signs) to return only the ones where there were any actual deaths.
+
+APDmortality <- APD %>% select(PatientId, APACHECategory, ANZROD, ICUOutcome) %>% mutate(Mortality = as.numeric(ICUOutcome=="Died")) %>% group_by(APACHECategory) %>%  summarise("Admissions" = n(), "Observed Mortality" = round(mean(Mortality), 3), "ANZROD Predicted Mortality" = round(mean(ANZROD, na.rm=T), 3)) 
 
 ```
 
@@ -328,6 +332,16 @@ IWO_smooth_plot <- Weight_moves_plot +
 grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 ```
 
+## Discharge after hours 
+
+
+## Readmission rate 
+
+The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, The expectation may be that on discharge from ICU, patients are either a path to wellness or death and 
+
+## Data quality 
+
+
 ## ANZROD stratified by outcome 
 
 This slightly busy plot has another purpose. It repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death is displayed in the deepest red, to emphasise those patients who went on to die against the prediction of the algorithm, who will appear as **short bright bars**. These outcomes are distressing and often raise the question of whether they could have been prevented. 
@@ -385,12 +399,24 @@ ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% 
    scale_fill_brewer(palette = "Pastel2")
 ```
 
+```{r Head_trauma_admissions, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
+#plots stacked bar charts for the total and group specific admissions. Use the numbers in the concatenation brackets (the ones inside `c(...)`) to mark the ones you want displayed. 
+ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% c(601)))) + 
+   geom_histogram() +
+   labs(y = "Admissions per week",
+        x = "Admission date",
+        fill = "Head trauma admission?") + 
+   scale_fill_brewer(palette = "Pastel2")
+
+```
+
 The full admission numbers over the period are also displayed in the table below, with actual ICU mortality and predicted mortality by the ANZROD algorithm. 
 
 ```{r echo = FALSE, message = FALSE, warning=FALSE}
-# Manipulates the data for the period directly. Use the commented-out filter (by removing the hash before the %>% signs) to return only the ones where there were any actual deaths.
+# This uses the mortality calculation from the setup chunk at the top of the document, use the commented out section to select only those where there is a valid comparison to be made, ie those with any actual deaths.
 
-APDmortality <- APD %>% select(PatientId, APACHECategory, ANZROD, ICUOutcome) %>% mutate(Mortality = as.numeric(ICUOutcome=="Died")) %>% group_by(APACHECategory) %>%  summarise("Admissions" = n(), "Observed Mortality" = round(mean(Mortality), 3), "ANZROD Predicted Mortality" = round(mean(ANZROD, na.rm=T), 3)) #%>% filter(`Observed Mortality` > 0.001)
+#APDmortality %>% filter(`Observed Mortality` > 0.001)
+
 
 kable(APDmortality)
 ```
@@ -399,14 +425,39 @@ kable(APDmortality)
 
 **How many patients are likely to benefit from ECMO retrieval?** 
 
-This question can't be directly answered with retrospective data. There may be patients who survived but with impairments that could have been prevented with more aggressively lung protective ventilation. There may be patients who were considered unsalvageable and were not even referred for consideration of ICU. There may be patients who are listed with one top line diagnosis but who also had a condition amenable to mechanical circulatory or ventilatory support. 
-
-As a starting point, however, we chose the following filters: 
-    1 Worst P:F ratio <150 mmHg / atm OR 
-    2 Cardiac failure admission diagnosis AND 
-    3 Died in ICU OR 
-    4 Transferred to another hospital ICU 
-
 ```{r echo = FALSE, message = FALSE, warning=FALSE}
+# This uses the calculated PaO2:FiO2 ratio (as APD$PF) for selection 
+VV_candidates <- APD %>% filter(PF<=150 & Intubated == TRUE & (ICUOutcome=="Died" | ICULOS/24>6) & AgeICU <= 75) %>% 
+    filter(across(ImmuneDisease:Leukaemia, ~ .x == FALSE))
+
+VA_candidates <- APD %>% 
+    filter(APACHEDiagnosis %in% 101:111 & ICUOutcome== c("Died","OtherAcuteHospitalIcu") & AgeICU <= 75) %>% 
+    filter(across(ImmuneDisease:Leukaemia, ~ .x == FALSE))
+
+VV_strict <- VV_candidates %>%  
+    filter(PF<=100 & AgeICU<=65) %>% 
+    filter(across(ChronicRespiratory:Leukaemia, ~ .x == FALSE))
+
+VA_strict <- VA_candidates %>% 
+    filter(AgeICU <= 65)%>% 
+    filter(across(ChronicRespiratory:Leukaemia, ~ .x == FALSE))
 
 ```
+
+This question can't be directly answered with retrospective data. There may be patients who survived but with impairments that could have been prevented with more aggressively lung protective ventilation. There may be patients who were considered unsalvageable and were not even referred for consideration of ICU. There may be patients who are listed with one top line diagnosis but who also had a condition amenable to mechanical circulatory or ventilatory support. Registry data is unreliable on the inclusions and exclusions which pertain at the moment of considering referral. 
+
+As a starting point, we chose set of criteria which reflect the experience of ELSO sites, before further limiting the criteria to those patients with a high predicted benefit _if their registry entries reflect their determinative parameters_. The latter number places a lower limit on the possible referrals: 
+    1 For VV ECMO:
+        - Worst P:F ratio <100 mmHg / atm while invasively ventilated 
+        - Died in ICU OR long stay >7 days
+        - No chronic conditions preventing VV ECMO treatment, and age <=65
+    2 For VA ECMO: 
+        - Cardiovascular admission or cardiac arrest 
+        - Inotropes required and highest Systolic BP<90 
+        - Died or transferred to another ICU 
+        - No chronic conditions preventing VV ECMO treatment, and age <=65
+
+These result in between `r tally(VV_strict)` and `r tally(VV_candidates)` patients for VV ECMO, and between `r tally(VA_strict)` and `r tally(VA_candidates)` patients for VA ECMO per year. 
+
+For the `r count(VV_candidates)` patients who met VV ECMO oxygenation criteria, `r sum(VV_candidates$ICUOutcome=="Died")` or `r round(sum(VV_candidates$ICUOutcome=="Died") / tally(VV_candidates)*100, 1)`% died. An estimated benefit of 15% absolute mortality reduction suggests that at the very least 2 extra Territorians would be alive at each year's end with access to ECMO facilities, and at the most 6. 
+
