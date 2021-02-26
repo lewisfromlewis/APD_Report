@@ -29,7 +29,7 @@ options(htmltools.dir.version = FALSE)
 ```
 
 ```{r cleaning, echo=FALSE, message=FALSE}
-# Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified. If one column parses properly in csv and Excel it can be left out, but just...don't.
+# Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified, including the eccentrically named Trachestomy. If one column parses properly in csv and Excel it can be left out, but just...don't.
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). 
 
@@ -334,12 +334,39 @@ grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 
 ## Discharge after hours 
 
+```{r echo = FALSE, message = FALSE, warning=FALSE}
+
+APD <- APD %>%
+   mutate(OOHDC = case_when(
+      hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6 ~ "After_hours",
+      day(ICU_DIS_DTM) %in% c(1,7) ~ "Weekend",
+      TRUE ~ "In_hours"
+      )) 
+
+OOH_discharges <- APD %>% 
+   filter(ICUOutcome !="Died") %>% 
+   group_by(OOHDC) 
+          
+```
+
+Of the `r APD %>% filter(ICUOutcome != "Died") %>% summarise(n())` patients who left ICU alive, `r APD %>% filter(ICUOutcome != "Died" & (hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6)) %>% summarise(n())` were discharged out of hours and a further `r APD %>% filter(ICUOutcome != "Died" & day(ICU_DIS_DTM) %in% c(1,7)) %>% summarise(n())` were discharged on a weekend. The table below compares some of their characteristics. 
+
+```{r echo=FALSE, message = FALSE}
+OOH_discharges %>% summarise(
+   Adm_ANZROD = mean(ANZROD, na.rm=T),
+   ICULOS = mean(ICULOS, na.rm=T)/24,
+   Hsp_mortality = round(mean(HospitalOutcome=="Died", na.rm=T), 3),
+   Post_ICU_LOS = mean(interval(ICU_DIS_DTM, HOSP_DIS_DTM)/86400, na.rm=T)
+   )
+```
 
 ## Readmission rate 
 
-The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, The expectation may be that on discharge from ICU, patients are either a path to wellness or death and 
+
+The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. In this period, `r APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% nrow()` patients were readmitted, accounting for `r APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% n_distinct()` readmissions in total. The mortality rate was `r round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0]=="Died", na.rm=T), 3)`, compared to `r round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode ==0]=="Died", na.rm=T), 3)` for first admissions. 
 
 ## Data quality 
+
 
 
 ## ANZROD stratified by outcome 
