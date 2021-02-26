@@ -367,6 +367,23 @@ The readmission rate is a source of perennial interest. In sympathy with the lan
 
 ## Data quality 
 
+There are many ways to describe missingness. This is a big topic but the basic difference is between entries that are missing at random, and those where the missingness itself represents a process. It's difficult to tell from a single dataset which is happening, and topic knowledge is needed. We get a report on the data quality of the essential items, but not on the whole dataset. Here is a snapshot of the proportion of missingness in each variable.
+
+```{r Missing.plot, fig.margin = TRUE, fig.cap = "APD variables ordered by proportion missing over the period.", cache=FALSE, message=FALSE, warning=FALSE, echo = FALSE}
+missvarsplot <- naniar::gg_miss_var(APD,  show_pct = TRUE) +
+   theme(axis.text.y=element_blank())
+
+misscasesplot <- naniar::gg_miss_case(APD, show_pct = TRUE)
+
+grid.arrange(missvarsplot, misscasesplot, nrow = 2)
+```
+
+The table below gives further detail on the variables with the greatest proportion of missing data. Many of these are simply not useful. Many are extremely useful, but missed for various reasons.
+
+```{r echo=FALSE}
+naniar::miss_var_summary(APD, n=20)
+```
+In exploring the reasons for missing observations, some plots can help. These are not necessarily what is needed in a monthly report, but the patterns of missingness, as a signal of the underlying mechanisms by which observations are missed, can be very valuable in examining our own practice.
 
 
 ## ANZROD stratified by outcome 
