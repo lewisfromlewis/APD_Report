@@ -386,7 +386,7 @@ naniar::miss_var_summary(APD, n=20)
 In exploring the reasons for missing observations, some plots can help. These are not necessarily what is needed in a monthly report, but the patterns of missingness, as a signal of the underlying mechanisms by which observations are missed, can be very valuable in examining our own practice.
 
 
-## ANZROD stratified by outcome 
+## ANZROD and outcome 
 
 This slightly busy plot has another purpose. It repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death is displayed in the deepest red, to emphasise those patients who went on to die against the prediction of the algorithm, who will appear as **short bright bars**. These outcomes are distressing and often raise the question of whether they could have been prevented. 
 
@@ -408,7 +408,7 @@ occupancy_intensity +
 
 ```
 
-Over this period, the table below shows the ANZROD-predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`, whereas in survivors the median predicted risk of death was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`, as shown in the table below. 
+We often only review the predicted risk of death for those who died, because that is the structure of our quality reporting. Over this period, the table below shows the ANZROD-predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`. As a corrective, it's important also to review the predicted risk of death in survivors. Across this period the median predicted risk of death in survivors was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`, as shown in the table below. 
 
 ```{r ANZROD_by_outcome-table, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
 ANZROD_by_outcome <- kable(APD %>% 
@@ -422,6 +422,15 @@ ANZROD_by_outcome <- kable(APD %>%
    caption = "Algorithmically predicted mortality for each category of ICU outcome during the period. Median and interquartile range are shown. The range is wide where few patients are in that category, or where the mortality predictions for each patient were very divergent."
    )
 ANZROD_by_outcome
+```
+
+More important again, however, is the outcome in each category of predicted risk. That is listed in the table below (which might have some gaps because of small numbers, depending on the period selected).
+
+```{r ANZROD.quintiles.table, echo=FALSE}
+APD %>% select(ANZROD, ICUOutcome) %>% 
+   cut(breaks = quantile(ANZROD),
+       probs = seq)
+                                           )
 ```
 
 ## Subsets of admissions 
