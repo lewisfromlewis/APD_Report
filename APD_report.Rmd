@@ -488,7 +488,7 @@ admission_headtrauma <- ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill 
    labs(y = "Admissions per week",
         x = "Admission date",
         fill = "TBI") + 
-   scale_fill_brewer(palette = "Pastel2")
+   scale_fill_brewer(palette = "Pastel2") 
 
 grid.arrange(admission_cv, admission_headtrauma, nrow=1)
 ```
@@ -547,11 +547,6 @@ For the `r count(VV_candidates)` patients who met VV ECMO oxygenation criteria, 
 
 There may be patients who survived but with impairments that could have been prevented with more aggressively lung protective ventilation. 
 
-```{r impaired, echo=FALSE, message=FALSE}
-APD %>% 
-   filter()
-```
-
 There may be patients who were considered unsalvageable and were not even referred for consideration of ICU. There may be patients who are listed with one top line diagnosis but who also had a condition amenable to mechanical circulatory or ventilatory support. Registry data is unreliable on the inclusions and exclusions which pertain at the moment of considering referral. 
 
 As a starting point, we chose set of criteria which reflect the experience of ELSO sites, before further limiting the criteria to those patients with a high predicted benefit _if their registry entries reflect their determinative parameters_. The latter number places a lower limit on the possible referrals: 
@@ -565,5 +560,4 @@ As a starting point, we chose set of criteria which reflect the experience of EL
         - Died or transferred to another ICU 
         - No chronic conditions preventing VV ECMO treatment, and age <=65
 
-
-
+This represents the best available evidence on which to base the decision. Given the apparent justification by these numbers it is not recommended to spend time and energy on collecting more exact summaries which are likely to increase the confidence in the recommendation, but instead to proceed with feasibility discussions. 
