@@ -5,10 +5,10 @@ author: "Lewis Campbell"
 date: "`r Sys.Date()`"
 output:
   tufte::tufte_html: default
-  tufte::tufte_handout:
+  tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
-  tufte::tufte_book:
+  tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
 bibliography: 
@@ -222,7 +222,11 @@ APDmortality <- APD %>% select(PatientId, APACHECategory, ANZROD, ICUOutcome) %>
 
 # Introduction
 
-The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated anylses. This analysis was run on `r Sys.Date()`. We start with an introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`. Later sections answer the question, "what is the need and feasibility for an ECMO service at Royal Darwin Hospital?".
+The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We [start](#regular) with a recurring report containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`. 
+
+After that we have a [section laying out the evidence](#question) for another question, along with a little more indication of the `R` code which generated that evidence. 
+
+# Report {#regular}
 
 ## Numbers of patients 
 Over the period there were `r length(APD$SLK)` admissions, of `r length(unique(APD$SLK))` individuals. The weekly admission rate is shown below, and the instantaneous occupancy, changing at the moment of each admission or discharge, is in the margin.
@@ -358,12 +362,20 @@ OOH_discharges %>% summarise(
    Hsp_mortality = round(mean(HospitalOutcome=="Died", na.rm=T), 3),
    Post_ICU_LOS = mean(interval(ICU_DIS_DTM, HOSP_DIS_DTM)/86400, na.rm=T)
    )
+
+readmitpats <- APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% nrow()
+
+readmitno <- APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% n_distinct()
+
+readmitmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0]=="Died", na.rm=T), 3)
+
+firstmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode ==0]=="Died", na.rm=T), 3)
 ```
 
 ## Readmission rate 
 
 
-The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. In this period, `r APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% nrow()` patients were readmitted, accounting for `r APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% n_distinct()` readmissions in total. The mortality rate was `r round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0]=="Died", na.rm=T), 3)`, compared to `r round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode ==0]=="Died", na.rm=T), 3)` for first admissions. 
+The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. In this period, `r readmitpats` patients were readmitted, accounting for `r readmitno` readmissions in total. The mortality rate was `r readmitmort`, compared to `r firstmort` for first admissions. 
 
 ## Data quality 
 
@@ -378,13 +390,12 @@ misscasesplot <- naniar::gg_miss_case(APD, show_pct = TRUE)
 grid.arrange(missvarsplot, misscasesplot, nrow = 2)
 ```
 
-The table below gives further detail on the variables with the greatest proportion of missing data. Many of these are simply not useful. Many are extremely useful, but missed for various reasons.
+The table below gives further detail on the variables with the greatest proportion of missing data. Many of these are simply not useful (for example the fields for CABG and Transfers, which have been removed by the code). Many are extremely useful, but missed for various reasons.
 
-```{r echo=FALSE}
-naniar::miss_var_summary(APD, n=20)
+```{r message = FALSE}
+APD %>% select(-EthnicityOther, -CABGGraft, -CABGRedo, -PT_identifier, -ICU_identifier, -HOSP_identifier, -AMIThromboTher, -ReadmissionLagHours, -TransferredFrom, -TransferredTo) %>% naniar::miss_var_summary(n=20)
 ```
 In exploring the reasons for missing observations, some plots can help. These are not necessarily what is needed in a monthly report, but the patterns of missingness, as a signal of the underlying mechanisms by which observations are missed, can be very valuable in examining our own practice.
-
 
 ## ANZROD and outcome 
 
@@ -405,10 +416,13 @@ occupancy_intensity +
    theme(axis.text.y = element_blank()) +
    guides(guide_legend(alpha = element_blank()))
 
+roddead <- round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)
+
+rodlived <- round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)
 
 ```
 
-We often only review the predicted risk of death for those who died, because that is the structure of our quality reporting. Over this period, the table below shows the ANZROD-predicted risk of death for those who died was `r round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)`. As a corrective, it's important also to review the predicted risk of death in survivors. Across this period the median predicted risk of death in survivors was `r round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)`, as shown in the table below. 
+We often only review the predicted risk of death for those who died, because that is the structure of our quality reporting. Over this period, the table below shows the ANZROD-predicted risk of death for those who died was `r roddead`. As a corrective, it's important also to review the predicted risk of death in survivors. Across this period the median predicted risk of death in those who actually survived was `r rodlived`, as shown in the table below. 
 
 ```{r ANZROD_by_outcome-table, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
 ANZROD_by_outcome <- kable(APD %>% 
@@ -426,55 +440,64 @@ ANZROD_by_outcome
 
 More important again, however, is the outcome in each category of predicted risk. That is listed in the table below (which might have some gaps because of small numbers, depending on the period selected).
 
-```{r ANZROD.quintiles.table, echo=FALSE}
-APD %>% select(ANZROD, ICUOutcome) %>% 
-   cut(breaks = quantile(ANZROD),
-       probs = seq)
-                                           )
+```{r ANZROD.quintiles.table, echo=FALSE, message = FALSE}
+APD %>% 
+   select(ANZROD, ICUOutcome) %>% 
+   mutate(RODquartile = ntile(ANZROD, 5)) %>% 
+   group_by(RODquartile) %>% 
+   summarise(
+      Patients = n(),
+      `Count of outcomes` = sum(ICUOutcome=="Died", na.rm=T), 
+      `Mortality Proportion` = round(mean(ICUOutcome=="Died", na.rm=T), 3)) %>% 
+   kable()
+                                           
 ```
+
+# Today's report {#question}
+
+The code below has some skeleton elements (such as the notes on how to reproduce the analysis), and some elements that are intended directly to answer the question for today. 
 
 ## Subsets of admissions 
 
 The count of certain admission diagnoses or clinical features can be shown in the context of all admissions. Here, cardiovascular admissions are displayed. The first code returns the diagnostic category numbers for any diagnoses admitted during the period. Use these to fill in the second bit of code with the diagnostic categories you're interested in.
 
-```{r APACHE.categories, fig.margin = TRUE, message = FALSE, warning = FALSE, echo = FALSE}
+```{r APACHE.categories, fig.margin = TRUE, message = FALSE, warning = FALSE}
 #retrieves the categories present in the dataset 
 levels(as.factor(APD$APACHECategory))
 ```
 
 ```{r Diagnosis_admissions, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
 #plots stacked bar charts for the total and group specific admissions. Use the numbers in the concatenation brackets (the ones inside `c(...)`) to mark the ones you want displayed. 
-ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% c(101:111, 1202:1213)))) + 
+admission_cv <- ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% c(101:111, 1202:1213)))) + 
    geom_histogram() +
    labs(y = "Admissions per week",
         x = "Admission date",
         fill = "Cardiovascular admission?") + 
    scale_fill_brewer(palette = "Pastel2")
-```
 
-```{r Head_trauma_admissions, fig.margin = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
-#plots stacked bar charts for the total and group specific admissions. Use the numbers in the concatenation brackets (the ones inside `c(...)`) to mark the ones you want displayed. 
-ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% c(601)))) + 
+admission_headtrauma <- ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% c(601)))) + 
    geom_histogram() +
    labs(y = "Admissions per week",
         x = "Admission date",
         fill = "Head trauma admission?") + 
    scale_fill_brewer(palette = "Pastel2")
 
+grid.arrange(admission_cv, admission_headtrauma, nrow=1)
 ```
+
 
 The full admission numbers over the period are also displayed in the table below, with actual ICU mortality and predicted mortality by the ANZROD algorithm. 
 
 ```{r echo = FALSE, message = FALSE, warning=FALSE}
 # This uses the mortality calculation from the setup chunk at the top of the document, use the commented out section to select only those where there is a valid comparison to be made, ie those with any actual deaths.
 
-#APDmortality %>% filter(`Observed Mortality` > 0.001)
+#APDmortality %>% filter(`Observed Mortality` > 0.001) %>%  kable()
 
 
 kable(APDmortality)
 ```
 
-# Today's question 
+## Today's question 
 
 **How many patients are likely to benefit from ECMO retrieval?** 
 
