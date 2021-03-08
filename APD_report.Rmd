@@ -4,11 +4,11 @@ subtitle: "Template for data reading and cleaning from the ANZICS APD"
 author: "Lewis Campbell"
 date: "`r Sys.Date()`"
 output:
-  tufte::tufte_html: default
-  tufte::tufte_book:
+  tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
-  tufte::tufte_handout:
+  tufte::tufte_html: default
+  tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
 bibliography: 
@@ -31,7 +31,9 @@ options(htmltools.dir.version = FALSE)
 ```{r cleaning, echo=FALSE, message=FALSE}
 # Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified, including the eccentrically named Trachestomy. If one column parses properly in csv and Excel it can be left out, but just...don't.
 
-# First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). 
+# First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
+
+APD_source <- "./MAR2020.csv"
 
 cols_APD <- cols(
    APD_Inclusion = col_character(),
@@ -106,7 +108,7 @@ cols_APD <- cols(
    SmokingStatus = col_character(),
    AfterhoursDis = col_character(),
    ExitBlockHrs = col_double(),
-   GCSDateTime = col_character(),
+   GCSDateTime = col_datetime(format = "%d/%m/%Y %H:%M:%S"),
    GCS = col_integer(),
    GCSEye = col_integer(),
    GCSVerb = col_integer(),
@@ -201,7 +203,7 @@ cols_APD <- cols(
 # writeClipboard(gsub("\\\\", "/", readClipboard()))
 # Then paste the clipboard contents into the "file" entry in the call to read_csv below
 # read it in as the object called APD, which will appear in the Data window
-APD <- read_csv(file = "./MAR2020.csv", na = c("", "NA", "NULL"), col_types = cols_APD)
+APD <- read_csv(file = APD_source, na = c("", "NA", "NULL"), col_types = cols_APD)
 # Here is the behaviour of the Excel option without specifying types. Expect all numerical values to be classed as Character, and the col_types argument doesn't behave the same in readxl:: (wants a character) as in readr:: (wants a list)
 
 #APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
@@ -228,9 +230,9 @@ APDmortality <- APD %>%
 
 # Introduction
 
-The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We [start](#regular) with a recurring report containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`. 
+The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We [start](#regular) with a recurring report containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`, using the input file `r APD_source`. 
 
-After that we have a [section laying out the evidence](#question) for another question, along with a little more indication of the `R` code which generated that evidence. 
+After that we have a [section laying out the evidence](#question) for another question. In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis/), with a brief synthetic dataset to explore the effect of new code without access to the original data.
 
 # Report {#regular}
 
