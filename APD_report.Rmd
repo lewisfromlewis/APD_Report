@@ -15,7 +15,7 @@ bibliography:
 link-citations: yes
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning=FALSE}
 library(tufte)
 library(knitr)
 library(tidyverse)
@@ -201,7 +201,7 @@ cols_APD <- cols(
 # writeClipboard(gsub("\\\\", "/", readClipboard()))
 # Then paste the clipboard contents into the "file" entry in the call to read_csv below
 # read it in as the object called APD, which will appear in the Data window
-APD <- read_csv(file = "./COMET-Extract-APD.csv", na = c("", "NA", "NULL"), col_types = cols_APD)
+APD <- read_csv(file = "./MAR2020.csv", na = c("", "NA", "NULL"), col_types = cols_APD)
 # Here is the behaviour of the Excel option without specifying types. Expect all numerical values to be classed as Character, and the col_types argument doesn't behave the same in readxl:: (wants a character) as in readr:: (wants a list)
 
 #APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
@@ -362,12 +362,6 @@ OOH_discharges <- APD %>%
 Of the `r APD %>% filter(ICUOutcome != "Died") %>% summarise(n())` patients who left ICU alive, `r APD %>% filter(ICUOutcome != "Died" & (hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6)) %>% summarise(n())` were discharged out of hours and a further `r APD %>% filter(ICUOutcome != "Died" & day(ICU_DIS_DTM) %in% c(1,7)) %>% summarise(n())` were discharged on a weekend. The table below compares some of their characteristics. 
 
 ```{r echo=FALSE, message = FALSE}
-OOH_discharges %>% summarise(
-   Adm_ANZROD = mean(ANZROD, na.rm=T),
-   ICULOS = mean(ICULOS, na.rm=T)/24,
-   Hsp_mortality = round(mean(HospitalOutcome=="Died", na.rm=T), 3),
-   Post_ICU_LOS = mean(interval(ICU_DIS_DTM, HOSP_DIS_DTM)/86400, na.rm=T)
-   )
 
 readmitpats <- APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% nrow()
 
@@ -376,6 +370,14 @@ readmitno <- APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% n_d
 readmitmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0]=="Died", na.rm=T), 3)
 
 firstmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode ==0]=="Died", na.rm=T), 3)
+
+OOH_discharges %>%
+   summarise(
+      "Admission ANZROD" = round(mean(ANZROD, na.rm=T), 3),
+      "ICU LOS" = round(mean(ICULOS, na.rm=T)/24, 2),
+      "Hospital mortality" = round(mean(HospitalOutcome=="Died", na.rm=T), 3),
+      "Post ICU LOS" = round(mean(interval(ICU_DIS_DTM, HOSP_DIS_DTM)/86400, na.rm=T),3)
+      ) %>% kable()
 ```
 
 ## Readmission rate 
@@ -399,7 +401,10 @@ grid.arrange(missvarsplot, misscasesplot, nrow = 2)
 The table below gives further detail on the variables with the greatest proportion of missing data. Many of these are simply not useful (for example the fields for CABG and Transfers, which have been removed by the code). Many are extremely useful, but missed for various reasons.
 
 ```{r message = FALSE}
-APD %>% select(-EthnicityOther, -CABGGraft, -CABGRedo, -PT_identifier, -ICU_identifier, -HOSP_identifier, -AMIThromboTher, -ReadmissionLagHours, -TransferredFrom, -TransferredTo) %>% naniar::miss_var_summary(n=20)
+APD %>% select(-EthnicityOther, -CABGGraft, -CABGRedo, -PT_identifier,
+               -ICU_identifier, -HOSP_identifier, -AMIThromboTher, -ReadmissionLagHours,
+               -TransferredFrom, -TransferredTo) %>% 
+   naniar::miss_var_summary(n=20)
 ```
 In exploring the reasons for missing observations, some plots can help. These are not necessarily what is needed in a monthly report, but the patterns of missingness, as a signal of the underlying mechanisms by which observations are missed, can be very valuable in examining our own practice.
 
@@ -537,11 +542,12 @@ VVbasemort <- sum(VV_candidates$ICUOutcome=="Died") / tally(VV_candidates)
 
 VVbenefit <- round(count(VV_candidates)*(1-(VVbasemort-0.15)),1)
 
+costperVVbenefit <- 20000*tally(VV_candidates)/VVbenefit
 ```
 
 This question can't be directly answered with retrospective data. The top line answer is that between `r tally(VV_strict)` and `r tally(VV_candidates)` patients met criteria for VV ECMO, and between `r tally(VA_strict)` and `r tally(VA_candidates)` patients for VA ECMO per year. 
 
-For the `r count(VV_candidates)` patients who met VV ECMO oxygenation criteria, `r sum(VV_candidates$ICUOutcome=="Died")` or `r round(VVbasemort*100, 1)`% died. An estimated benefit of 15% absolute mortality reduction suggests that at the very least `r VVbenefit` extra Territorians would be alive at each year's end with access to ECMO facilities. At a cost of $20,000 per VV ECMO run this equates to \$`r 20000*tally(VV_candidates)/VVbenefit` per survivor, well within common cost:benefit criteria. 
+For the `r count(VV_candidates)` patients who met VV ECMO oxygenation criteria, `r sum(VV_candidates$ICUOutcome=="Died")` or `r round(VVbasemort*100, 1)`% died. An estimated benefit of 15% absolute mortality reduction suggests that at the very least `r VVbenefit` extra Territorians would be alive at each year's end with access to ECMO facilities. At a cost of $20,000 per VV ECMO run this equates to `r as.integer(costperVVbenefit)` dollars per survivor, well within common cost:benefit criteria. 
 
 ## Inferential problems 
 
@@ -550,6 +556,7 @@ There may be patients who survived but with impairments that could have been pre
 There may be patients who were considered unsalvageable and were not even referred for consideration of ICU. There may be patients who are listed with one top line diagnosis but who also had a condition amenable to mechanical circulatory or ventilatory support. Registry data is unreliable on the inclusions and exclusions which pertain at the moment of considering referral. 
 
 As a starting point, we chose set of criteria which reflect the experience of ELSO sites, before further limiting the criteria to those patients with a high predicted benefit _if their registry entries reflect their determinative parameters_. The latter number places a lower limit on the possible referrals: 
+
     1 For VV ECMO:
         - Worst P:F ratio <100 mmHg / atm while invasively ventilated 
         - Died in ICU OR long stay >7 days
