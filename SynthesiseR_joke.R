@@ -3,6 +3,7 @@
 
 # Read in
 library(tidyverse)
+library(synthpop)
 
 APD_source <- "./MAR2020.csv"
 
@@ -189,12 +190,12 @@ APD_reduced <- APD_reduced %>%
 
 # Synthesise. Gegen Zie, Synthpop! 
 
-KraftAPD <- syn(APD_reduced %>% dplyr::select(-ICU_ADM_DTM, -HOSP_ADM_DTM))
+KraftAPD <- syn(APD_reduced %>% dplyr::select(-ICU_ADM_DTM, -HOSP_ADM_DTM), k=250)
 
 # Workaround for Dates being insanely complex to simulate: randomly sample ICU and Hospital start dates and add to the synthetic dataset.
 
 Synthetic_APD <- KraftAPD$syn %>% 
-    mutate(ICU_start = sample(APD_reduced$ICU_ADM_DTM, replace = TRUE),
-           Hospital_start = sample(APD_reduced$HOSP_ADM_DTM, replace = TRUE))
+    mutate(ICU_start = sample(APD_reduced$ICU_ADM_DTM, replace = TRUE, size=250),
+           Hospital_start = sample(APD_reduced$HOSP_ADM_DTM, replace = TRUE, size=250))
 
 # Save the synthetic dataset
