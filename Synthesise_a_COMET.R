@@ -199,3 +199,4 @@ Synthetic_APD <- KraftAPD$syn %>%
            Hospital_start = sample(APD_reduced$HOSP_ADM_DTM, replace = TRUE, size=250))
 
 # Save the synthetic dataset
+write_csv(Synthetic_APD, "Synthetic_APD.csv")
