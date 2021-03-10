@@ -25,7 +25,7 @@ Because it doesn't contain any patient information, it can be shared freely. New
 
 2 You probably don't need all the columns but if you find you do (for example you need to work on manipulating timespans, and if so may you find peace), could I suggest using a further step instead of using synthpop for all of the work? And example is given with start dates for ICU and Hospital, feel free to adapt and adopt. 
 
-3 The process hasn't gone into great detail about dependencies between values (partly because that's not well explored in any ICU set, partly because it's heaps of work for a small audience). If you're keen you could use `synthpop::syn(rules())` to create some, so that you don't have the mean of men's heights being less than the mean of women's.
+3 The process hasn't gone into great detail about dependencies between values (partly because that's not well explored in any ICU set, partly because it's heaps of work for a small audience). If you're keen you could use `synthpop::syn(rules())` to create some, so that you don't have the mean of men's heights being less than the mean of women's, and so on.
 
 ## The plan 
 It would be nice to serve this up as a Shiny app. Maybe at the weekend ... 
