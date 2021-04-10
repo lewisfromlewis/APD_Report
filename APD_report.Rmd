@@ -18,6 +18,7 @@ link-citations: yes
 ```{r setup, include=FALSE, warning=FALSE}
 library(tufte)
 library(knitr)
+library(httr)
 library(tidyverse)
 library(readxl)
 library(lubridate)
@@ -27,6 +28,24 @@ library(gridExtra)
 knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
 ```
+```{r download, echo=FALSE, message=FALSE}
+# There is one way to get the data and one only. May be https://comet.anzics.com.au/api/v1/reports/runreport which is the content of POST on developer tools in Firefox
+
+#res <- POST(
+#    url = "https://comet.anzics.com.au/#/login",
+#    encode = "json",
+#    body = list(
+#        type = "ANZICS.Domain.Comet.Reporting.ReportDefinition, ANZICS.Domain",
+#        careUnits = "57e139c6-cbec-e611-80c8-005056a105bd",
+#        icuFromAdmissionDateTime = "2021-01-01T00:00:00+11:00",
+#        icuToAdmissionDateTime = "2021-01-30T00:00:00+11:00",
+#        report = "1"
+#    )
+#)
+
+
+```
+
 
 ```{r cleaning, echo=FALSE, message=FALSE}
 # Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified, including the eccentrically named Trachestomy. If one column parses properly in csv and Excel it can be left out, but just...don't.
@@ -226,6 +245,15 @@ APDmortality <- APD %>%
              "Observed Mortality" = round(mean(Mortality, na.rm=T), 3), 
              "ANZROD Predicted Mortality" = round(mean(ANZROD, na.rm=T), 3)) 
 
+# Regenerates out of hours discharge from within the data 
+
+APD <- APD %>%
+   mutate(OOHDC = case_when(
+      hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6 ~ "After_hours",
+      day(ICU_DIS_DTM) %in% c(1,7) ~ "Weekend",
+      TRUE ~ "In_hours"
+      )) 
+
 ```
 
 # Introduction
@@ -239,7 +267,7 @@ After that we have a [section laying out the evidence](#question) for another qu
 ## Numbers of patients 
 Over the period there were `r length(APD$SLK)` admissions, of `r length(unique(APD$SLK))` individuals. The weekly admission rate is shown below, and the instantaneous occupancy, changing at the moment of each admission or discharge, is in the margin.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r admissions, echo=FALSE, message=FALSE, warning=FALSE}
 admission_rate <- ggplot(APD, mapping = aes(x=ICU_ADM_DTM))
 
 admission_rate + geom_histogram(fill = "pink", alpha = 0.9, show.legend = FALSE)+
@@ -249,7 +277,7 @@ admission_rate + geom_histogram(fill = "pink", alpha = 0.9, show.legend = FALSE)
    
 ```
 
-```{r echo = FALSE, message = FALSE, warning = FALSE}
+```{r instantaneous.occupancy, echo = FALSE, message = FALSE, warning = FALSE}
 # Writes a data frame containing an ordered list of times, with the type of each time, and a running total which is +1 for each admission time and -1 for each discharge time
 Patient_movements <- APD %>% 
    select(PatientId, Admit = ICU_ADM_DTM, Discharge = ICU_DIS_DTM, ANZROD = ANZROD) %>% 
@@ -346,14 +374,7 @@ grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 
 ## Discharge after hours 
 
-```{r echo = FALSE, message = FALSE, warning=FALSE}
-
-APD <- APD %>%
-   mutate(OOHDC = case_when(
-      hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6 ~ "After_hours",
-      day(ICU_DIS_DTM) %in% c(1,7) ~ "Weekend",
-      TRUE ~ "In_hours"
-      )) 
+```{r OOH, echo = FALSE, message = FALSE, warning=FALSE}
 
 OOH_discharges <- APD %>% 
    filter(ICUOutcome !="Died") %>% 
@@ -363,11 +384,17 @@ OOH_discharges <- APD %>%
 
 Of the `r APD %>% filter(ICUOutcome != "Died") %>% summarise(n())` patients who left ICU alive, `r APD %>% filter(ICUOutcome != "Died" & (hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6)) %>% summarise(n())` were discharged out of hours and a further `r APD %>% filter(ICUOutcome != "Died" & day(ICU_DIS_DTM) %in% c(1,7)) %>% summarise(n())` were discharged on a weekend. The table below compares some of their characteristics. 
 
-```{r echo=FALSE, message = FALSE}
+```{r readmission.sums, echo=FALSE, message = FALSE}
 
-readmitpats <- APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% nrow()
+readmitno <- APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% nrow()
 
-readmitno <- APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% n_distinct()
+readmitpats <- APD %>% filter(ReadmissionEpisode >0) %>% select(PatientId) %>% n_distinct()
+
+readmit72hno <- APD %>% filter(ReadmissionEpisode > 0 & ReadmissionLagHours<=72) %>% nrow()
+
+readmit72hpats <- APD %>% filter(ReadmissionEpisode > 0 & ReadmissionLagHours<=72) %>% n_distinct()
+
+readmit72mort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0 & APD$ReadmissionLagHours<=72]=="Died", na.rm=T), 3)
 
 readmitmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0]=="Died", na.rm=T), 3)
 
@@ -385,7 +412,7 @@ OOH_discharges %>%
 ## Readmission rate 
 
 
-The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. In this period, `r readmitpats` patients were readmitted, accounting for `r readmitno` readmissions in total. The mortality rate was `r readmitmort`, compared to `r firstmort` for first admissions. 
+The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. In this period, `r readmitpats` patients were readmitted, accounting for `r readmitno` readmissions in total, `r readmit72hno` of those being within 72 hours of ICU discharge. The mortality rate was `r readmitmort`, or `r readmit72mort` in those readmitted within 72 hours, compared to `r firstmort` for first admissions. 
 
 ## Data quality 
 
@@ -456,8 +483,8 @@ More important again, however, is the outcome in each category of predicted risk
 ```{r ANZROD.quintiles.table, echo=FALSE, message = FALSE}
 APD %>% 
    select(ANZROD, ICUOutcome) %>% 
-   mutate(RODquartile = ntile(ANZROD, 5)) %>% 
-   group_by(RODquartile) %>% 
+   mutate(RODquintile = ntile(ANZROD, 5)) %>% 
+   group_by(RODquintile) %>% 
    summarise(
       Patients = n(),
       `Count of outcomes` = sum(ICUOutcome=="Died", na.rm=T), 
