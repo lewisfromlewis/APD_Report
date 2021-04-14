@@ -1,17 +1,19 @@
 ---
 title: "APD report"
-subtitle: "Template for data reading and cleaning from the ANZICS APD"
 author: "Lewis Campbell"
 date: "`r Sys.Date()`"
 output:
   tufte::tufte_html: default
+  html_document: null
   tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
   tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
-bibliography: 
+  pdf_document: default
+subtitle: Template for data reading and cleaning from the ANZICS APD
+bibliography: null
 link-citations: yes
 ---
 
@@ -29,7 +31,7 @@ knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
 ```
 ```{r download, echo=FALSE, message=FALSE}
-# There is one way to get the data and one only. May be https://comet.anzics.com.au/api/v1/reports/runreport which is the content of POST on developer tools in Firefox
+# There is one way to get the data and one only. I can't programmatically access the data for now. May be https://comet.anzics.com.au/api/v1/reports/runreport which is the content of POST on developer tools in Firefox
 
 #res <- POST(
 #    url = "https://comet.anzics.com.au/#/login",
@@ -52,7 +54,7 @@ options(htmltools.dir.version = FALSE)
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
 
-APD_source <- "./MAR2020.csv"
+APD_source <- "./April2021.csv"
 
 cols_APD <- cols(
    APD_Inclusion = col_character(),
@@ -258,9 +260,9 @@ APD <- APD %>%
 
 # Introduction
 
-The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We [start](#regular) with a recurring report containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`, using the input file `r APD_source`. 
+The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We start with a recurring report containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`, using the input file `r APD_source`. 
 
-After that we have a [section laying out the evidence](#question) for another question. In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis/), with a brief synthetic dataset to explore the effect of new code without access to the original data.
+After that we have a section laying out the evidence for another question. In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis), with a brief synthetic dataset to explore the effect of new code without access to the original data.
 
 # Report {#regular}
 
