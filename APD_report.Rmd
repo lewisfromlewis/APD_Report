@@ -3,15 +3,13 @@ title: "APD report"
 author: "Lewis Campbell"
 date: "`r Sys.Date()`"
 output:
-  tufte::tufte_html: default
-  html_document: null
   tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
+  tufte::tufte_html: default
   tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
-  pdf_document: default
 subtitle: Template for data reading and cleaning from the ANZICS APD
 bibliography: null
 link-citations: yes
@@ -260,9 +258,9 @@ APD <- APD %>%
 
 # Introduction
 
-The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We start with a recurring report containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`, using the input file `r APD_source`. 
+The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We start with a [recurring report](#regular) containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`, using the input file `r APD_source`. 
 
-After that we have a section laying out the evidence for another question. In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis), with a brief synthetic dataset to explore the effect of new code without access to the original data.
+After that we have a section laying out the evidence for [another question](#question). In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis), with a brief synthetic dataset to explore the effect of new code without access to the original data.
 
 # Report {#regular}
 
@@ -413,7 +411,6 @@ OOH_discharges %>%
 
 ## Readmission rate 
 
-
 The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. In this period, `r readmitpats` patients were readmitted, accounting for `r readmitno` readmissions in total, `r readmit72hno` of those being within 72 hours of ICU discharge. The mortality rate was `r readmitmort`, or `r readmit72mort` in those readmitted within 72 hours, compared to `r firstmort` for first admissions. 
 
 ## Data quality 
@@ -439,9 +436,11 @@ APD %>% select(-EthnicityOther, -CABGGraft, -CABGRedo, -PT_identifier,
 ```
 In exploring the reasons for missing observations, some plots can help. These are not necessarily what is needed in a monthly report, but the patterns of missingness, as a signal of the underlying mechanisms by which observations are missed, can be very valuable in examining our own practice.
 
-## ANZROD and outcome 
+# ANZROD and outcome 
 
-This slightly busy plot has another purpose. It repeats the above analysis, and codes the admissions by outcome: those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death is displayed in the deepest red, to emphasise those patients who went on to die against the prediction of the algorithm, who will appear as **short bright bars**. These outcomes are distressing and often raise the question of whether they could have been prevented. 
+We want to know if all of this activity has been to our stated purposes. The chief among these purposes is saving lives. First is to determine how the severity relates to outcomes. 
+
+To begin that story: this slightly busy plot repeats the above analysis, and codes the admissions by outcome. Those who survived are a shade of blue, and those who died are a shade of red. The lowest risk of death is displayed in the deepest red, to emphasise those patients who went on to die against the prediction of the algorithm, who will appear as **short bright bars**. These outcomes are [distressing](https://www.beyondblue.org.au/) and often raise the question of whether they could have been prevented. 
 
 ```{r echo = FALSE, message = FALSE, warning=FALSE, fig.cap = "Short bright red bars suggest an ICU death in a patient with a low predicted mortality and brief ICU stay before death."}
 # This overlaps all the patient stays, colouring by outcome with density of colour by ANZROD 
@@ -463,6 +462,8 @@ roddead <- round(median(APD$ANZROD[APD$ICUOutcome=="Died"], na.rm=T), 3)
 rodlived <- round(median(APD$ANZROD[APD$ICUOutcome!="Died"], na.rm=T), 3)
 
 ```
+
+## The bigger picture 
 
 We often only review the predicted risk of death for those who died, because that is the structure of our quality reporting. Over this period, the table below shows the ANZROD-predicted risk of death for those who died was `r roddead`. As a corrective, it's important also to review the predicted risk of death in survivors. Across this period the median predicted risk of death in those who actually survived was `r rodlived`, as shown in the table below. 
 
@@ -494,6 +495,51 @@ APD %>%
    kable()
                                            
 ```
+
+## The Standardised Mortality Ratio 
+
+Although we all die, each death of another human marks us, and should mark us. In the M&M we should talk about the specific circumstances of each death, we should mark the lives that end here and never fool ourselves into thinking that our jobs are just another process that can be controlled. 
+
+At the same time, we need to be sure that all our human actions and our care are directed in the right way. We need to be able to tell ourselves, our families and the public that we are worth the trust that is placed in us. And if you care about that sort of thing, we need to benchmark and report to managers. 
+
+The predictions for risk of death are imprecise, but are well calibrated (meaning that on average, a higher ANZROD, for example, means a higher risk of death no matter where you are). This means that ANZROD can be used to compare the risk of hospital death across ICUs as long as some basic elements such as case mix, patient selection, staffing, and discharge practices are the same across those units. 
+
+Because we can compare the risk of death, we can then compare the risk of death to the actual deaths. This generates the indirectly standardised mortality ratio or SMR
+^[Indirect standardisation, as here, uses a model of some kind. Direct standardisation uses the actual deaths in the relevant strata of each population, usually defined by age and sex. Direct standardisation is better when talking about population health, as it doesn't miss out on those who failed to come to ICU. For ICU processes and outcomes, indirect standardisation by SMR allows us to take account simultaneously of all the variables in the ANZROD, and so is better.]
+. 
+
+The SMR by month in this period is listed below. Remember a value of **less than 1** for SMR means that fewer people died than expected. Remember as well that ANZROD predicts hospital death, and so the numbers are higher than for ICU deaths. The ratio of predicted to observed deaths across the entire period was `r round(sum(APD$HospitalOutcome=="Died", na.rm=T)/sum(APD$ANZROD, na.rm=T), 3)`.
+
+```{r SMR, echo=FALSE, message = FALSE}
+SMRmonth <- APD %>% 
+   select(ANZROD, HospitalOutcome, ICU_ADM_DTM) %>% 
+   mutate(Month = month(ICU_ADM_DTM)) %>% 
+   group_by(Month) %>% 
+   summarise(
+      Patients = n(),
+      Predicted = round(mean(ANZROD, na.rm=T), 3), 
+      Observed = round(mean(HospitalOutcome=="Died", na.rm=T),3),
+      SMR = round(Observed/Predicted, 3)
+      ) 
+
+SMRmonth %>% kable(caption = "Observed versus predicted mortality, and resulting SMR by month")
+```
+
+```{r SMRplot, echo=FALSE, message = FALSE}
+# Next I'll overplot the admissions and SMR with error bars. 
+
+#SMRplot <- ggplot(data = SMRmonth, aes(x = Month, y = SMR))+
+#   geom_smooth() +
+#   geom_bar(Patients) + Stat_identity()
+#SMRplot
+
+#admission_rate + geom_histogram(fill = "pink", alpha = 0.9, #show.legend = FALSE)+
+#   labs(title = "Admission rate over the period",
+#        x = "Admission date",
+#        y = "Admissions per week")
+```
+
+
 
 # Today's report {#question}
 
