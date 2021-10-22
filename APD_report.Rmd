@@ -3,10 +3,10 @@ title: "APD report"
 author: "Lewis Campbell"
 date: "`r Sys.Date()`"
 output:
+  tufte::tufte_html: default
   tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
-  tufte::tufte_html: default
   tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
@@ -52,7 +52,7 @@ options(htmltools.dir.version = FALSE)
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
 
-APD_source <- "./April2021.csv"
+APD_source <- "./APD_2020.csv"
 
 cols_APD <- cols(
    APD_Inclusion = col_character(),
@@ -539,7 +539,9 @@ SMRmonth %>% kable(caption = "Observed versus predicted mortality, and resulting
 #        y = "Admissions per week")
 ```
 
-
+```{r}
+ICUtrache <- APD %>% filter(! APACHEDiagnosis %in% c(202, 208, 1303) & Trachestomy==TRUE) %>% count()
+```
 
 # Today's report {#question}
 
@@ -558,6 +560,13 @@ Use these subsets to create the graphs below (or tables, from almost the same co
 
 ```{r Diagnosis_admissions, echo = FALSE, message = FALSE, warning=FALSE}
 #plots stacked bar charts for the total and group specific admissions. Use the numbers in the concatenation brackets (the ones inside `c(...)`) to mark the ones you want displayed. 
+admission_trauma <- ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% c(601:605, 1601:1605)))) + 
+   geom_histogram() +
+   labs(y = "Admissions per week",
+        x = "Admission date",
+        fill = "Trauma") + 
+   scale_fill_brewer(palette = "Pastel2")
+
 admission_cv <- ggplot(data = APD, mapping = aes(x = ICU_ADM_DTM,  fill = (APACHEDiagnosis %in% c(101:111, 1202:1213)))) + 
    geom_histogram() +
    labs(y = "Admissions per week",
@@ -586,7 +595,7 @@ The full admission numbers over the period are also displayed in the table below
 APDmortality %>% arrange(desc(Admissions)) %>% kable()
 ```
 
-## Today's question 
+## ECMO need
 
 **How many patients are likely to benefit from ECMO retrieval?** 
 
@@ -626,7 +635,7 @@ This question can't be directly answered with retrospective data. The top line a
 
 For the `r count(VV_candidates)` patients who met VV ECMO oxygenation criteria, `r sum(VV_candidates$ICUOutcome=="Died")` or `r round(VVbasemort*100, 1)`% died. An estimated benefit of 15% absolute mortality reduction suggests that at the very least `r VVbenefit` extra Territorians would be alive at each year's end with access to ECMO facilities. At a cost of $20,000 per VV ECMO run this equates to `r as.integer(costperVVbenefit)` dollars per survivor, well within common cost:benefit criteria. 
 
-## Inferential problems 
+## Inferential problems for ECMO need
 
 There may be patients who survived but with impairments that could have been prevented with more aggressively lung protective ventilation. 
 
@@ -645,3 +654,17 @@ As a starting point, we chose set of criteria which reflect the experience of EL
         - No chronic conditions preventing VV ECMO treatment, and age <=65
 
 This represents the best available evidence on which to base the decision. Given the apparent justification by these numbers it is not recommended to spend time and energy on collecting more exact summaries which are likely to increase the confidence in the recommendation, but instead to proceed with feasibility discussions. 
+
+## Missed Sepsis 
+Missed sepsis is a politically important item. A pathway has been developed for this. Identification of cases may follow the same history seen in VAP and other politically sensitive system diagnoses. One simple KPI relates to patients admitted to ICU with a diagnosis of sepsis from the ward, within 48h of admission to hospital.
+
+```{r missed-sepsis-numbers, echo = FALSE, message = FALSE, warning=FALSE}
+
+missed <- APD %>% 
+   filter(APACHEDiagnosis %in% c(501:504, 212) &
+      ICU_ADM_DTM-HOSP_ADM_DTM>172800)
+
+```
+
+There were there were `r length(missed$SLK)` admissions, of `r length(unique(missed$SLK))` individuals. The predicted mortality in this sub-cohort was `r round(mean(missed$ANZROD), 3)`. The actual mortality was `r round(mean(missed$ICUOutcome=="Died",na.rm=T),3)`.
+
