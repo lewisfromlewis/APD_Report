@@ -3,10 +3,10 @@ title: "APD report"
 author: "Lewis Campbell"
 date: "`r Sys.Date()`"
 output:
-  tufte::tufte_html: default
   tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
+  tufte::tufte_html: default
   tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
@@ -378,8 +378,11 @@ grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 
 OOH_discharges <- APD %>% 
    filter(ICUOutcome !="Died") %>% 
-   group_by(OOHDC) 
-          
+   group_by(OOHDC) %>% 
+   summarise(ANZROD = mean(ANZROD, na.rm=T),
+             ICUday = mean(ICULOS)/24)
+
+
 ```
 
 Of the `r APD %>% filter(ICUOutcome != "Died") %>% summarise(n())` patients who left ICU alive, `r APD %>% filter(ICUOutcome != "Died" & (hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6)) %>% summarise(n())` were discharged out of hours and a further `r APD %>% filter(ICUOutcome != "Died" & day(ICU_DIS_DTM) %in% c(1,7)) %>% summarise(n())` were discharged on a weekend. The table below compares some of their characteristics. 
@@ -660,9 +663,26 @@ Missed sepsis is a politically important item. A pathway has been developed for 
 
 ```{r missed-sepsis-numbers, echo = FALSE, message = FALSE, warning=FALSE}
 
-missed <- APD %>% 
-   filter(APACHEDiagnosis %in% c(501:504, 212) &
-      ICU_ADM_DTM-HOSP_ADM_DTM>172800)
+missed <- mutate(APD, missed_sepsis = ICU_ADM_DTM-HOSP_ADM_DTM>172800 & APACHEDiagnosis %in% c(501:504, 212))
+
+missed_sepsis_age <- missed %>%
+   ggplot(aes(y=AgeICU, x=missed_sepsis))+
+   geom_boxplot()
+
+missed_sepsis_age
+
+missed_sepsis_ROD <- missed %>%
+   ggplot(aes(y=ANZROD, x=missed_sepsis))+
+   geom_violin()
+
+missed_sepsis_ROD
+
+missed_sepsis_table <- missed %>% 
+   group_by(missed_sepsis) %>% 
+   summarise(ANZROD = mean(ANZROD, na.rm=T),
+             Mortality = mean(DiedICU=="Died"),
+             ICUday = mean(ICULOS, na.rm=T)/24,
+             Age = median(AgeICU))
 
 ```
 
