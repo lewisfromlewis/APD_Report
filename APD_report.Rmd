@@ -13,6 +13,10 @@ output:
 subtitle: Template for data reading and cleaning from the ANZICS APD
 bibliography: null
 link-citations: yes
+params:
+   year: 2020
+   data: APD_2020.csv
+   output-file: !r paste0("APD-", Sys.Date(), ".pdf")
 ---
 
 ```{r setup, include=FALSE, warning=FALSE}
@@ -258,9 +262,11 @@ APD <- APD %>%
 
 # Introduction
 
-The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We start with a [recurring report](#regular) containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`, using the input file `r APD_source`. 
+This report used the input file `r APD_source`, covering the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`. 
 
-After that we have a section laying out the evidence for [another question](#question). In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis), with a brief synthetic dataset to explore the effect of new code without access to the original data.
+The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` Integrated Development Environment, we are able to perform sophisticated analyses. We start with a [recurring report](#regular) containing requested items in a common format introduction describing the total patient cohort over the period. 
+
+After that we have a section laying out the evidence for [another question](#question). In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis/APD_report), with a brief synthetic dataset to explore the effect of new code without access to the original data.
 
 # Report {#regular}
 
@@ -403,7 +409,7 @@ readmitmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0]=="Died"
 
 firstmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode ==0]=="Died", na.rm=T), 3)
 
-OOH_discharges %>%
+OOH_discharges <- APD %>%
    summarise(
       "Admission ANZROD" = round(mean(ANZROD, na.rm=T), 3),
       "ICU LOS" = round(mean(ICULOS, na.rm=T)/24, 2),
@@ -420,7 +426,7 @@ The readmission rate is a source of perennial interest. In sympathy with the lan
 
 There are many ways to describe missingness. This is a big topic but the basic difference is between entries that are missing at random, and those where the missingness itself represents a process. It's difficult to tell from a single dataset which is happening, and topic knowledge is needed. We get a report on the data quality of the essential items, but not on the whole dataset. Here is a snapshot of the proportion of missingness in each variable.
 
-```{r Missing.plot, fig.margin = TRUE, fig.cap = "APD variables ordered by proportion missing over the period.", cache=FALSE, message=FALSE, warning=FALSE, echo = FALSE}
+```{r Missing.plot, fig.margin = TRUE, fig.cap = "APD variables ordered by proportion missing over the period.", message=FALSE, warning=FALSE, echo = FALSE}
 missvarsplot <- naniar::gg_miss_var(APD,  show_pct = TRUE) +
    theme(axis.text.y=element_blank())
 
