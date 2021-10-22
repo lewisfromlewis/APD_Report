@@ -666,5 +666,5 @@ missed <- APD %>%
 
 ```
 
-There were there were `r length(missed$SLK)` admissions, of `r length(unique(missed$SLK))` individuals. The predicted mortality in this sub-cohort was `r round(mean(missed$ANZROD), 3)`. The actual mortality was `r round(mean(missed$ICUOutcome=="Died",na.rm=T),3)`.
+There were there were `r length(missed$SLK)` admissions, of `r length(unique(missed$SLK))` individuals. The predicted mortality in this sub-cohort was `r round(mean(missed$ANZROD), 3)`. The actual mortality in ICU was `r round(mean(missed$ICUOutcome=="Died",na.rm=T),3)`, and hospital mortality was `r round(mean(missed$HospitalOutcome=="Died",na.rm=T),3)`.
 
