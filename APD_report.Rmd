@@ -14,8 +14,8 @@ subtitle: Template for data reading and cleaning from the ANZICS APD
 bibliography: null
 link-citations: yes
 params:
-   year: 2020
-   data: APD_2018.csv
+   year: 2019
+   data: APD_2019.csv
    output-file: !r paste0("APD-", Sys.Date(), ".pdf")
 ---
 
@@ -256,7 +256,10 @@ APD <- APD %>%
       hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6 ~ "After_hours",
       day(ICU_DIS_DTM) %in% c(1,7) ~ "Weekend",
       TRUE ~ "In_hours"
-      )) 
+      )) %>% 
+   mutate(ExitBlockHrs = time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour")) %>% 
+   mutate(missed_sepsis = ICU_ADM_DTM-HOSP_ADM_DTM>172800 & APACHEDiagnosis %in% c(501:504, 212)) %>% 
+   mutate(nointervention = Inotropes ==FALSE & InvVent ==FALSE & INVDayOne == FALSE & NIVVent == FALSE & RenalRep ==FALSE & Trachestomy == FALSE)
 
 ```
 
@@ -384,7 +387,7 @@ The time between a decision to discharge from ICU, and actual ICU, can be though
 It is not always possible to reduce the per-patient staff ratios if the number of exit blocked patients are not an exact multiple of the lower staffing ratio.
 ]. Processes of care and planning may also be disrupted due to ICU exit block, due to lack of home team access or more subtle lack of engagement. There may also be more direct interference with processes of care if patients are transferred to other locations where other systems are used. This is exacerbated if the patients are transferred during periods of lower staffing intensity, or where many patients are discharged from ICU at once to provide for urgent admissions. These possibilities are discussed below.
 
-```{r exit.block, echo=FALSE, message = FALSE}
+```{r exit.block, echo=FALSE, message = FALSE, warning=FALSE}
 exit_block <- APD %>% 
    group_by("Elective" = PlannedAdm) %>% 
    summarise("n" = n(),
@@ -392,12 +395,18 @@ exit_block <- APD %>%
              "Average hours" = mean(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T),
              "1st quartile" = quantile(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T, probs=0.25),
              "3rd quartile" = quantile(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T, probs=0.75)
-                ) %>% kable()
+                ) 
 
-exit_block
+kable(exit_block)
 ```
 
-We assume an ICU bed day costs 
+We assume an ICU bed day costs \$5320 more than a ward bed. A naive cost reduction estimate is \$`r sum(time_length(APD$ICU_DIS_DTM - APD$ICU_DIS_DEC_DTM, unit = "day"), na.rm=T)*5330` over this period, if all exit block were removed. Take a quick glance at the margin plot to check if the figures for discharge delay make sense.
+
+More sensibly, if we prevented only the upper 12.5\% of the exit blocked patients, those with the longest time of exit block, then \$`r sum(APD$ExitBlockHrs[APD$ExitBlockHrs>(quantile(APD$ExitBlockHrs, 0.875, na.rm=T))], na.rm=T)*5330/24` would be saved for the healthcare system during this period alone.
+
+```{r check.exit.block, message = FALSE, fig.margin = TRUE, fig.cap = "Check the exit block numbers make sense.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE, warning=FALSE, echo = FALSE}
+ggplot(data=APD, aes(PatientId, ExitBlockHrs/24)) + geom_point() + labs(x = NULL, y="DC delay in days")
+```
 
 ## Discharge after hours 
 
@@ -435,7 +444,7 @@ OOH_discharges
 
 ## Readmission rate 
 
-The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. In this period, `r readmitpats` patients were readmitted, accounting for `r readmitno` readmissions in total, `r readmit72hno` of those being within 72 hours of ICU discharge. The mortality rate was `r readmitmort`, or `r readmit72mort` in those readmitted within 72 hours, compared to `r firstmort` for first admissions. 
+In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. It is not possible to determine from the data whether any of these unexpected movements are avoidable. In this period, `r readmitpats` patients were readmitted, accounting for `r readmitno` readmissions in total, `r readmit72hno` of those being within 72 hours of ICU discharge. The hospital mortality rate was `r readmitmort`, or `r readmit72mort` in those readmitted within 72 hours, compared to `r firstmort` for first admissions. 
 
 ## Data quality 
 
@@ -682,30 +691,53 @@ Missed sepsis is a politically important item. A pathway has been developed for 
 
 ```{r missed-sepsis-numbers, echo = FALSE, message = FALSE, warning=FALSE}
 
-missed <- mutate(APD, missed_sepsis = ICU_ADM_DTM-HOSP_ADM_DTM>172800 & APACHEDiagnosis %in% c(501:504, 212))
-
-missed_sepsis_age <- missed %>%
-   ggplot(aes(y=AgeICU, x=missed_sepsis))+
-   geom_boxplot()
-
-missed_sepsis_age
-
-missed_sepsis_ROD <- missed %>%
+missed_sepsis_ROD <- APD %>%
    ggplot(aes(y=ANZROD, x=missed_sepsis))+
    geom_violin()
 
 missed_sepsis_ROD
 
-missed_sepsis_table <- missed %>% 
-   group_by(missed_sepsis) %>% 
-   summarise(ANZROD = mean(ANZROD, na.rm=T),
-             Mortality = mean(DiedICU=="Died"),
-             ICUday = mean(ICULOS, na.rm=T)/24,
-             Age = median(AgeICU))
-
+missed_sepsis_table <- APD %>% group_by(missed_sepsis) %>%
+   summarise(n = n(),
+             ANZROD = round(mean(ANZROD, na.rm=T), 2),
+             Mortality = round(mean(DiedICU=="Died", na.rm=T), 3),
+             "ICU LOS" = round(mean(ICULOS, na.rm=T)/24, 2),
+             Age = round(median(AgeICU), 2))
+             
+kable(missed_sepsis_table)
 ```
 
-There were there were `r length(missed$SLK)` admissions, of `r length(unique(missed$SLK))` individuals. The predicted mortality in this sub-cohort was `r round(mean(missed$ANZROD), 3)`. The actual mortality in ICU was `r round(mean(missed$ICUOutcome=="Died",na.rm=T),3)`, and hospital mortality was `r round(mean(missed$HospitalOutcome=="Died",na.rm=T),3)`.
+As summarised in the table, there were `r sum(APD$missed_sepsis==TRUE)` admissions in this category, of `r length(unique(APD$SLK)[APD$missed_sepsis==TRUE])` individuals. The predicted mortality in this sub-cohort was `r round(mean(APD$ANZROD[APD$missed_sepsis==TRUE]), 3)`. The actual mortality in ICU was `r round(mean(APD$ICUOutcome[APD$missed_sepsis==TRUE]=="Died",na.rm=T),3)`, and hospital mortality was `r round(mean(APD$HospitalOutcome[APD$missed_sepsis==TRUE]=="Died",na.rm=T),3)`.
 
 ## Demand management for exit block 
 
+Although it may be desirable to improve discharge processes and efficiency, it may be simpler to provide a safe space to care for these patients outside of ICU. Once suggestion relates to lower risk elective surgical patients, grouped in the first case by elective procedure. 
+
+```{r low-risk-numbers, echo = FALSE, message = FALSE, warning=FALSE}
+lowriskproc <- APD %>% 
+   filter(APACHESubcode %in% c(1203.02, 1205.01, 2201.05)) 
+surgnointervention <- APD %>% 
+   filter(ElectiveSurg == TRUE) %>% 
+   filter(nointervention == TRUE)
+
+```
+
+There were `r nrow(lowriskproc)` patients with lower risk procedures, with an average length of stay of `r round(mean(lowriskproc$ICULOS, na.rm=T)/24, 2)` days (and an average exit block of `r round(mean(lowriskproc$ExitBlockHrs, na.rm=T), 2)` hours). `r nrow(filter(lowriskproc, nointervention == TRUE))` of these patients received no ICU level intervention. Including these patients, `r nrow(surgnointervention)` elective surgical admissions involved no ICU level interventions, during their average `r round(mean(surgnointervention$ICULOS, na.rm=T)/24, 2)` days of which `r mean(surgnointervention$ExitBlockHrs, na.rm=T)` hours were exit blocked. It may not be possible to identify these low risk patients beforehand; some of their admission characteristics are summarised below. Identification of such low risk patients may indeed repay some of the required effort, given the estimated \$`r sum(surgnointervention$ICULOS, na.rm=T)/24*5330` these admissions cost.
+
+```{r nointervention.anzrod, echo = FALSE, message = FALSE, warning=FALSE}
+surgnointer.table <- APD %>% 
+   filter(ElectiveSurg == TRUE) %>% 
+   group_by("Free from intervention" = nointervention) %>% 
+   summarise(n = n(),
+             Age = round(median(AgeICU, na.rm = T), 2),
+             ANZROD = round(mean(ANZROD, na.rm = T), 2),
+             APACHE = round(mean(AP3score, na.rm = T), 2),
+             Female = round(mean(Sex=="Female"), 2))
+
+noneed_ANZROD <- APD %>%
+   ggplot(aes(y=ANZROD, x=nointervention))+
+   geom_violin() +
+   labs(x = "Intervention free")
+
+kable(surgnointer.table)
+```
