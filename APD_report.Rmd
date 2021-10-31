@@ -15,7 +15,7 @@ bibliography: null
 link-citations: yes
 params:
    year: 2020
-   data: APD_2020.csv
+   data: APD_2018.csv
    output-file: !r paste0("APD-", Sys.Date(), ".pdf")
 ---
 
@@ -51,12 +51,12 @@ options(htmltools.dir.version = FALSE)
 ```
 
 
-```{r cleaning, echo=FALSE, message=FALSE}
+```{r cleaning, echo=FALSE, message=FALSE, warning=FALSE}
 # Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified, including the eccentrically named Trachestomy. If one column parses properly in csv and Excel it can be left out, but just...don't.
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
 
-APD_source <- "./APD_2020.csv"
+APD_source <- paste0("./APD_", params$year, ".csv")
 
 cols_APD <- cols(
    APD_Inclusion = col_character(),
@@ -378,18 +378,28 @@ IWO_smooth_plot <- Weight_moves_plot +
 grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 ```
 
-## Discharge after hours 
+## Exit Block
 
-```{r OOH, echo = FALSE, message = FALSE, warning=FALSE}
+The time between a decision to discharge from ICU, and actual ICU, can be thought of as time spent in a safe location. There are, however, financial costs associated with such a prolongation of ICU stay, such as staff, or the need to provide more standing resources such as monitors^[
+It is not always possible to reduce the per-patient staff ratios if the number of exit blocked patients are not an exact multiple of the lower staffing ratio.
+]. Processes of care and planning may also be disrupted due to ICU exit block, due to lack of home team access or more subtle lack of engagement. There may also be more direct interference with processes of care if patients are transferred to other locations where other systems are used. This is exacerbated if the patients are transferred during periods of lower staffing intensity, or where many patients are discharged from ICU at once to provide for urgent admissions. These possibilities are discussed below.
 
-OOH_discharges <- APD %>% 
-   filter(ICUOutcome !="Died") %>% 
-   group_by(OOHDC) %>% 
-   summarise(ANZROD = mean(ANZROD, na.rm=T),
-             ICUday = mean(ICULOS)/24)
+```{r exit.block, echo=FALSE, message = FALSE}
+exit_block <- APD %>% 
+   group_by("Elective" = PlannedAdm) %>% 
+   summarise("n" = n(),
+             "Total days" = sum(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "day"), na.rm=T),
+             "Average hours" = mean(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T),
+             "1st quartile" = quantile(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T, probs=0.25),
+             "3rd quartile" = quantile(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T, probs=0.75)
+                ) %>% kable()
 
-
+exit_block
 ```
+
+We assume an ICU bed day costs 
+
+## Discharge after hours 
 
 Of the `r APD %>% filter(ICUOutcome != "Died") %>% summarise(n())` patients who left ICU alive, `r APD %>% filter(ICUOutcome != "Died" & (hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6)) %>% summarise(n())` were discharged out of hours and a further `r APD %>% filter(ICUOutcome != "Died" & day(ICU_DIS_DTM) %in% c(1,7)) %>% summarise(n())` were discharged on a weekend. The table below compares some of their characteristics. 
 
@@ -410,12 +420,17 @@ readmitmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0]=="Died"
 firstmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode ==0]=="Died", na.rm=T), 3)
 
 OOH_discharges <- APD %>%
+   filter(ICUOutcome !="Died") %>% 
+   group_by(OOHDC) %>% 
    summarise(
+      "Totals" = n(),
       "Admission ANZROD" = round(mean(ANZROD, na.rm=T), 3),
       "ICU LOS" = round(mean(ICULOS, na.rm=T)/24, 2),
       "Hospital mortality" = round(mean(HospitalOutcome=="Died", na.rm=T), 3),
       "Post ICU LOS" = round(mean(interval(ICU_DIS_DTM, HOSP_DIS_DTM)/86400, na.rm=T),3)
       ) %>% kable()
+
+OOH_discharges
 ```
 
 ## Readmission rate 
@@ -552,7 +567,7 @@ SMRmonth %>% kable(caption = "Observed versus predicted mortality, and resulting
 ICUtrache <- APD %>% filter(! APACHEDiagnosis %in% c(202, 208, 1303) & Trachestomy==TRUE) %>% count()
 ```
 
-# Today's report {#question}
+# Additional questions{#question}
 
 The code below has some skeleton elements (such as the notes on how to reproduce the analysis), and some elements that are intended directly to answer the question for today. 
 
@@ -644,8 +659,6 @@ This question can't be directly answered with retrospective data. The top line a
 
 For the `r count(VV_candidates)` patients who met VV ECMO oxygenation criteria, `r sum(VV_candidates$ICUOutcome=="Died")` or `r round(VVbasemort*100, 1)`% died. An estimated benefit of 15% absolute mortality reduction suggests that at the very least `r VVbenefit` extra Territorians would be alive at each year's end with access to ECMO facilities. At a cost of $20,000 per VV ECMO run this equates to `r as.integer(costperVVbenefit)` dollars per survivor, well within common cost:benefit criteria. 
 
-## Inferential problems for ECMO need
-
 There may be patients who survived but with impairments that could have been prevented with more aggressively lung protective ventilation. 
 
 There may be patients who were considered unsalvageable and were not even referred for consideration of ICU. There may be patients who are listed with one top line diagnosis but who also had a condition amenable to mechanical circulatory or ventilatory support. Registry data is unreliable on the inclusions and exclusions which pertain at the moment of considering referral. 
@@ -662,7 +675,7 @@ As a starting point, we chose set of criteria which reflect the experience of EL
         - Died or transferred to another ICU 
         - No chronic conditions preventing VV ECMO treatment, and age <=65
 
-This represents the best available evidence on which to base the decision. Given the apparent justification by these numbers it is not recommended to spend time and energy on collecting more exact summaries which are likely to increase the confidence in the recommendation, but instead to proceed with feasibility discussions. 
+This represents the best available evidence on which to base the decision. 
 
 ## Missed Sepsis 
 Missed sepsis is a politically important item. A pathway has been developed for this. Identification of cases may follow the same history seen in VAP and other politically sensitive system diagnoses. One simple KPI relates to patients admitted to ICU with a diagnosis of sepsis from the ward, within 48h of admission to hospital.
@@ -693,4 +706,6 @@ missed_sepsis_table <- missed %>%
 ```
 
 There were there were `r length(missed$SLK)` admissions, of `r length(unique(missed$SLK))` individuals. The predicted mortality in this sub-cohort was `r round(mean(missed$ANZROD), 3)`. The actual mortality in ICU was `r round(mean(missed$ICUOutcome=="Died",na.rm=T),3)`, and hospital mortality was `r round(mean(missed$HospitalOutcome=="Died",na.rm=T),3)`.
+
+## Demand management for exit block 
 
