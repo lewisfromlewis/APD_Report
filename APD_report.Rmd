@@ -14,8 +14,8 @@ subtitle: Template for data reading and cleaning from the ANZICS APD
 bibliography: null
 link-citations: yes
 params:
-   year: 2019
-   data: APD_2019.csv
+   year: 2021
+   data: APD_2021.csv
    output-file: !r paste0("APD-", Sys.Date(), ".pdf")
 ---
 
@@ -524,7 +524,8 @@ APD %>%
    summarise(
       Patients = n(),
       `Count of outcomes` = sum(ICUOutcome=="Died", na.rm=T), 
-      `Mortality Proportion` = round(mean(ICUOutcome=="Died", na.rm=T), 3)) %>% 
+      `Observed mortality` = round(mean(ICUOutcome=="Died", na.rm=T), 3)) %>%
+    mutate("Calculated ROD" = round(quantile(APD$ANZROD, probs = seq(0, 1, 0.2), na.rm=T), 3)) %>% 
    kable()
                                            
 ```
@@ -705,6 +706,32 @@ missed_sepsis_table <- APD %>% group_by(missed_sepsis) %>%
              Age = round(median(AgeICU), 2))
              
 kable(missed_sepsis_table)
+yearsofblock <- tibble(year = seq(2008, 2020, 1), Admissions = c(776, 808, 917, 901, 950, 956, 915, 939, 958, 1158, 1104, 1121, 1060), `Exit Block` = c(180, 329, 351, 459, 439, 402, 319, 746, 737, 624, 1184, 889, 771))
+ggplot(data=yearsofblock) +
+    geom_line(aes(x = year, y = `Exit Block`), colour = "red") +
+    geom_line(aes(x=year, y=Admissions), colour = "black") +
+    geom_smooth(method = "lm", aes(x = year, y = `Exit Block`), colour = "red") + 
+    geom_smooth(method = "lm", aes(x=year, y=Admissions), colour = "black") +
+    labs(title = "Admissions (black) vs exit block days", y = "Exit Block in days / Admissions per year")
+
+anova(lm(yearsofblock$Admissions ~ yearsofblock$year), lm(yearsofblock$`Exit Block` ~ yearsofblock$year))
+
+whys <- tibble(
+    causes = c("Total Beds", "Ward delays in DC", "Priority Allocation", "Ward skill shortage", "ICU staffing inflexible", "Communication about exit", "Infection Isolation", "ICU delays plans", "Top-down culture"),
+    votes = c(24, 15, 12, 9, 7, 6, 5, 4, 3)
+    )
+
+exitpareto1 <- ggplot(data=whys, aes(x = reorder(causes, desc(votes)))) +
+    geom_line(mapping = aes(x=reorder(causes, desc(votes)), y = cumsum(desc(-votes)), group = 1)) + 
+    geom_col(aes(x=reorder(causes, desc(votes)), y = votes, fill = causes)) +
+    scale_fill_brewer() +
+    labs(title = "Pareto chart of opinions on ICU exit block", x = "causes", y = "proportion") +
+    theme(axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=0.75))
+
+exitpareto1
+
+#library(qcc)
+pareto.chart(whys$votes)
 ```
 
 As summarised in the table, there were `r sum(APD$missed_sepsis==TRUE)` admissions in this category, of `r length(unique(APD$SLK)[APD$missed_sepsis==TRUE])` individuals. The predicted mortality in this sub-cohort was `r round(mean(APD$ANZROD[APD$missed_sepsis==TRUE]), 3)`. The actual mortality in ICU was `r round(mean(APD$ICUOutcome[APD$missed_sepsis==TRUE]=="Died",na.rm=T),3)`, and hospital mortality was `r round(mean(APD$HospitalOutcome[APD$missed_sepsis==TRUE]=="Died",na.rm=T),3)`.
