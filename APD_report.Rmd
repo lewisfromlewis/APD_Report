@@ -229,7 +229,7 @@ cols_APD <- cols(
 APD <- read_csv(file = APD_source, na = c("", "NA", "NULL"), col_types = cols_APD)
 # Here is the behaviour of the Excel option without specifying types. Expect all numerical values to be classed as Character, and the col_types argument doesn't behave the same in readxl:: (wants a character) as in readr:: (wants a list)
 
-#APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
+#APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/APD_Report/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
 #str(APD_excel_test)
 
 # and check for the numbers of certain diagnoses: head injury with
@@ -707,6 +707,7 @@ missed_sepsis_table <- APD %>% group_by(missed_sepsis) %>%
              
 kable(missed_sepsis_table)
 yearsofblock <- tibble(year = seq(2008, 2020, 1), Admissions = c(776, 808, 917, 901, 950, 956, 915, 939, 958, 1158, 1104, 1121, 1060), `Exit Block` = c(180, 329, 351, 459, 439, 402, 319, 746, 737, 624, 1184, 889, 771))
+
 ggplot(data=yearsofblock) +
     geom_line(aes(x = year, y = `Exit Block`), colour = "red") +
     geom_line(aes(x=year, y=Admissions), colour = "black") +
@@ -714,24 +715,24 @@ ggplot(data=yearsofblock) +
     geom_smooth(method = "lm", aes(x=year, y=Admissions), colour = "black") +
     labs(title = "Admissions (black) vs exit block days", y = "Exit Block in days / Admissions per year")
 
-anova(lm(yearsofblock$Admissions ~ yearsofblock$year), lm(yearsofblock$`Exit Block` ~ yearsofblock$year))
+#anova(lm(yearsofblock$Admissions ~ yearsofblock$year), lm(yearsofblock$`Exit Block` ~ yearsofblock$year))
 
-whys <- tibble(
-    causes = c("Total Beds", "Ward delays in DC", "Priority Allocation", "Ward skill shortage", "ICU staffing inflexible", "Communication about exit", "Infection Isolation", "ICU delays plans", "Top-down culture"),
-    votes = c(24, 15, 12, 9, 7, 6, 5, 4, 3)
-    )
+#whys <- tibble(
+#    causes = c("Total Beds", "Ward delays in DC", "Priority Allocation", "Ward skill shortage", "ICU staffing inflexible", "Communication about exit", "Infection Isolation", "ICU delays plans", "Top-down culture"),
+#    votes = c(24, 15, 12, 9, 7, 6, 5, 4, 3)
+#    )
 
-exitpareto1 <- ggplot(data=whys, aes(x = reorder(causes, desc(votes)))) +
-    geom_line(mapping = aes(x=reorder(causes, desc(votes)), y = cumsum(desc(-votes)), group = 1)) + 
-    geom_col(aes(x=reorder(causes, desc(votes)), y = votes, fill = causes)) +
-    scale_fill_brewer() +
-    labs(title = "Pareto chart of opinions on ICU exit block", x = "causes", y = "proportion") +
-    theme(axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=0.75))
+#exitpareto1 <- ggplot(data=whys, aes(x = reorder(causes, desc(votes)))) +
+#    geom_line(mapping = aes(x=reorder(causes, desc(votes)), y = cumsum(desc(-votes)), group = 1)) + 
+#    geom_col(aes(x=reorder(causes, desc(votes)), y = votes, fill = causes)) +
+#    scale_fill_brewer() +
+#    labs(title = "Pareto chart of opinions on ICU exit block", x = "causes", y = "proportion") +
+#    theme(axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=0.75))
 
-exitpareto1
+#exitpareto1
 
 #library(qcc)
-pareto.chart(whys$votes)
+#pareto.chart(whys$votes)
 ```
 
 As summarised in the table, there were `r sum(APD$missed_sepsis==TRUE)` admissions in this category, of `r length(unique(APD$SLK)[APD$missed_sepsis==TRUE])` individuals. The predicted mortality in this sub-cohort was `r round(mean(APD$ANZROD[APD$missed_sepsis==TRUE]), 3)`. The actual mortality in ICU was `r round(mean(APD$ICUOutcome[APD$missed_sepsis==TRUE]=="Died",na.rm=T),3)`, and hospital mortality was `r round(mean(APD$HospitalOutcome[APD$missed_sepsis==TRUE]=="Died",na.rm=T),3)`.
@@ -741,6 +742,11 @@ As summarised in the table, there were `r sum(APD$missed_sepsis==TRUE)` admissio
 Although it may be desirable to improve discharge processes and efficiency, it may be simpler to provide a safe space to care for these patients outside of ICU. Once suggestion relates to lower risk elective surgical patients, grouped in the first case by elective procedure. 
 
 ```{r low-risk-numbers, echo = FALSE, message = FALSE, warning=FALSE}
+procedureprobs <- APD %>% 
+    filter(!is.na(APACHESubcode)) %>% 
+    group_by(APACHESubcode) %>% 
+    mean(DiedICU, na.rm=T)
+
 lowriskproc <- APD %>% 
    filter(APACHESubcode %in% c(1203.02, 1205.01, 2201.05)) 
 surgnointervention <- APD %>% 
