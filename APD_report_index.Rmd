@@ -13,10 +13,6 @@ output:
 subtitle: Template for data reading and cleaning from the ANZICS APD
 bibliography: null
 link-citations: yes
-params:
-   year: 2021
-   data: APD_2021.csv
-   output-file: !r paste0("APD-", Sys.Date(), ".pdf")
 ---
 
 ```{r setup, include=FALSE, warning=FALSE}
@@ -33,11 +29,10 @@ knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
 options(htmltools.dir.version = FALSE)
 ```
 ```{r download, echo=FALSE, message=FALSE}
-# There is one way to get the data and one only. The content of POST on developer tools in Firefox when using the COMET front end is https://comet.anzics.com.au/api/v1/reports/runreport. Enter the variables COMETUSR and COMETPWD in the console *outside of this script* to avoid breaches.
+# There is one way to get the data and one only. I can't programmatically access the data for now. May be https://comet.anzics.com.au/api/v1/reports/runreport which is the content of POST on developer tools in Firefox
 
-#POST(
-#    url = "https://comet.anzics.com.au/api/v1/reports/runreport",
-#    authenticate(user = COMETUSR, password = COMETPWD),
+#res <- POST(
+#    url = "https://comet.anzics.com.au/#/login",
 #    encode = "json",
 #    body = list(
 #        type = "ANZICS.Domain.Comet.Reporting.ReportDefinition, ANZICS.Domain",
@@ -52,12 +47,12 @@ options(htmltools.dir.version = FALSE)
 ```
 
 
-```{r cleaning, echo=FALSE, message=FALSE, warning=FALSE}
+```{r cleaning, echo=FALSE, message=FALSE}
 # Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified, including the eccentrically named Trachestomy. If one column parses properly in csv and Excel it can be left out, but just...don't.
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
 
-APD_source <- paste0("./APD_", params$year, ".csv")
+APD_source <- "./APD_2020.csv"
 
 cols_APD <- cols(
    APD_Inclusion = col_character(),
@@ -230,7 +225,7 @@ cols_APD <- cols(
 APD <- read_csv(file = APD_source, na = c("", "NA", "NULL"), col_types = cols_APD)
 # Here is the behaviour of the Excel option without specifying types. Expect all numerical values to be classed as Character, and the col_types argument doesn't behave the same in readxl:: (wants a character) as in readr:: (wants a list)
 
-#APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/APD_Report/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
+#APD_excel_test <- read_xlsx("C:/Users/lewis/Documents/The_Information/Research_of_me/Observational/Report_APD/COMET-Extract-APD.xlsx", sheet = 1, na = c("", "NA", "NULL"), n_max = 1060)
 #str(APD_excel_test)
 
 # and check for the numbers of certain diagnoses: head injury with
@@ -257,20 +252,15 @@ APD <- APD %>%
       hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6 ~ "After_hours",
       day(ICU_DIS_DTM) %in% c(1,7) ~ "Weekend",
       TRUE ~ "In_hours"
-      )) %>% 
-   mutate(ExitBlockHrs = time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour")) %>% 
-   mutate(missed_sepsis = ICU_ADM_DTM-HOSP_ADM_DTM>172800 & APACHEDiagnosis %in% c(501:504, 212)) %>% 
-   mutate(nointervention = Inotropes ==FALSE & InvVent ==FALSE & INVDayOne == FALSE & NIVVent == FALSE & RenalRep ==FALSE & Trachestomy == FALSE)
+      )) 
 
 ```
 
 # Introduction
 
-This report used the input file `r APD_source`, covering the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`. 
+The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` IDE, we are able to perform sophisticated analyses. This analysis was run on `r Sys.Date()`. We start with a [recurring report](#regular) containing requested items in a common format introduction describing the total patient cohort over the period `r min(APD$ICU_ADM_DT)` to `r max(APD$ICU_DS_DT, na.rm=TRUE)`, using the input file `r APD_source`. 
 
-The ANZICS APD is a registry covering every adult patient admitted to the majority of Intensive Care Units in Australia^[The explanation and supporting materials are available from [ANZICS](https://www.anzics.com.au/anzics-registries).]. We contributed to the benchmarking of illness and treatment in the [Northern Territory](https://www.nt.gov.au) by entering every patient into this database. Using the statistical programming environment `R` with the `RStudio` Integrated Development Environment, we are able to perform sophisticated analyses. We start with a [recurring report](#regular) containing requested items in a common format introduction describing the total patient cohort over the period. 
-
-After that we have a section laying out the evidence for [another question](#question). In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis/APD_report), with a brief synthetic dataset to explore the effect of new code without access to the original data.
+After that we have a section laying out the evidence for [another question](#question). In that section there is a little more indication of the `R` code which generated that evidence, for transparency. The entire code is available on [github](https://github.com/lewisfromlewis), with a brief synthetic dataset to explore the effect of new code without access to the original data.
 
 # Report {#regular}
 
@@ -382,34 +372,18 @@ IWO_smooth_plot <- Weight_moves_plot +
 grid.arrange(IWO_plot, IWO_smooth_plot, nrow = 1)
 ```
 
-## Exit Block
-
-The time between a decision to discharge from ICU, and actual ICU, can be thought of as time spent in a safe location. There are, however, financial costs associated with such a prolongation of ICU stay, such as staff, or the need to provide more standing resources such as monitors^[
-It is not always possible to reduce the per-patient staff ratios if the number of exit blocked patients are not an exact multiple of the lower staffing ratio.
-]. Processes of care and planning may also be disrupted due to ICU exit block, due to lack of home team access or more subtle lack of engagement. There may also be more direct interference with processes of care if patients are transferred to other locations where other systems are used. This is exacerbated if the patients are transferred during periods of lower staffing intensity, or where many patients are discharged from ICU at once to provide for urgent admissions. These possibilities are discussed below.
-
-```{r exit.block, echo=FALSE, message = FALSE, warning=FALSE}
-exit_block <- APD %>% 
-   group_by("Elective" = PlannedAdm) %>% 
-   summarise("n" = n(),
-             "Total days" = sum(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "day"), na.rm=T),
-             "Average hours" = mean(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T),
-             "1st quartile" = quantile(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T, probs=0.25),
-             "3rd quartile" = quantile(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T, probs=0.75)
-                ) 
-
-kable(exit_block)
-```
-
-We assume an ICU bed day costs \$5320 more than a ward bed. A naive cost reduction estimate is \$`r sum(time_length(APD$ICU_DIS_DTM - APD$ICU_DIS_DEC_DTM, unit = "day"), na.rm=T)*5330` over this period, if all exit block were removed. Take a quick glance at the margin plot to check if the figures for discharge delay make sense.
-
-More sensibly, if we prevented only the upper 12.5\% of the exit blocked patients, those with the longest time of exit block, then \$`r sum(APD$ExitBlockHrs[APD$ExitBlockHrs>(quantile(APD$ExitBlockHrs, 0.875, na.rm=T))], na.rm=T)*5330/24` would be saved for the healthcare system during this period alone.
-
-```{r check.exit.block, message = FALSE, fig.margin = TRUE, fig.cap = "Check the exit block numbers make sense.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE, warning=FALSE, echo = FALSE}
-ggplot(data=APD, aes(PatientId, ExitBlockHrs/24)) + geom_point() + labs(x = NULL, y="DC delay in days")
-```
-
 ## Discharge after hours 
+
+```{r OOH, echo = FALSE, message = FALSE, warning=FALSE}
+
+OOH_discharges <- APD %>% 
+   filter(ICUOutcome !="Died") %>% 
+   group_by(OOHDC) %>% 
+   summarise(ANZROD = mean(ANZROD, na.rm=T),
+             ICUday = mean(ICULOS)/24)
+
+
+```
 
 Of the `r APD %>% filter(ICUOutcome != "Died") %>% summarise(n())` patients who left ICU alive, `r APD %>% filter(ICUOutcome != "Died" & (hour(ICU_DIS_DTM)>18 | hour(ICU_DIS_DTM)<6)) %>% summarise(n())` were discharged out of hours and a further `r APD %>% filter(ICUOutcome != "Died" & day(ICU_DIS_DTM) %in% c(1,7)) %>% summarise(n())` were discharged on a weekend. The table below compares some of their characteristics. 
 
@@ -429,29 +403,24 @@ readmitmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode >0]=="Died"
 
 firstmort <- round(mean(APD$HospitalOutcome[APD$ReadmissionEpisode ==0]=="Died", na.rm=T), 3)
 
-OOH_discharges <- APD %>%
-   filter(ICUOutcome !="Died") %>% 
-   group_by(OOHDC) %>% 
+OOH_discharges <- APD %>% 
    summarise(
-      "Totals" = n(),
       "Admission ANZROD" = round(mean(ANZROD, na.rm=T), 3),
       "ICU LOS" = round(mean(ICULOS, na.rm=T)/24, 2),
       "Hospital mortality" = round(mean(HospitalOutcome=="Died", na.rm=T), 3),
       "Post ICU LOS" = round(mean(interval(ICU_DIS_DTM, HOSP_DIS_DTM)/86400, na.rm=T),3)
       ) %>% kable()
-
-OOH_discharges
 ```
 
 ## Readmission rate 
 
-In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. It is not possible to determine from the data whether any of these unexpected movements are avoidable. In this period, `r readmitpats` patients were readmitted, accounting for `r readmitno` readmissions in total, `r readmit72hno` of those being within 72 hours of ICU discharge. The hospital mortality rate was `r readmitmort`, or `r readmit72mort` in those readmitted within 72 hours, compared to `r firstmort` for first admissions. 
+The readmission rate is a source of perennial interest. In sympathy with the language of patient journeys, a readmission can be viewed as a backward step. The expectation may be that on discharge from ICU, patients are either a path to wellness or death and that unexpected divagations from that path are unwelcome. In this period, `r readmitpats` patients were readmitted, accounting for `r readmitno` readmissions in total, `r readmit72hno` of those being within 72 hours of ICU discharge. The mortality rate was `r readmitmort`, or `r readmit72mort` in those readmitted within 72 hours, compared to `r firstmort` for first admissions. 
 
 ## Data quality 
 
 There are many ways to describe missingness. This is a big topic but the basic difference is between entries that are missing at random, and those where the missingness itself represents a process. It's difficult to tell from a single dataset which is happening, and topic knowledge is needed. We get a report on the data quality of the essential items, but not on the whole dataset. Here is a snapshot of the proportion of missingness in each variable.
 
-```{r Missing.plot, fig.margin = TRUE, fig.cap = "APD variables ordered by proportion missing over the period.", message=FALSE, warning=FALSE, echo = FALSE}
+```{r Missing.plot, fig.margin = TRUE, fig.cap = "APD variables ordered by proportion missing over the period.", cache=FALSE, message=FALSE, warning=FALSE, echo = FALSE}
 missvarsplot <- naniar::gg_miss_var(APD,  show_pct = TRUE) +
    theme(axis.text.y=element_blank())
 
@@ -525,8 +494,7 @@ APD %>%
    summarise(
       Patients = n(),
       `Count of outcomes` = sum(ICUOutcome=="Died", na.rm=T), 
-      `Observed mortality` = round(mean(ICUOutcome=="Died", na.rm=T), 3)) %>%
-    mutate("Calculated ROD" = round(quantile(APD$ANZROD, probs = seq(0, 1, 0.2), na.rm=T), 3)) %>% 
+      `Mortality Proportion` = round(mean(ICUOutcome=="Died", na.rm=T), 3)) %>% 
    kable()
                                            
 ```
@@ -578,7 +546,7 @@ SMRmonth %>% kable(caption = "Observed versus predicted mortality, and resulting
 ICUtrache <- APD %>% filter(! APACHEDiagnosis %in% c(202, 208, 1303) & Trachestomy==TRUE) %>% count()
 ```
 
-# Additional questions{#question}
+# Today's report {#question}
 
 The code below has some skeleton elements (such as the notes on how to reproduce the analysis), and some elements that are intended directly to answer the question for today. 
 
@@ -670,6 +638,8 @@ This question can't be directly answered with retrospective data. The top line a
 
 For the `r count(VV_candidates)` patients who met VV ECMO oxygenation criteria, `r sum(VV_candidates$ICUOutcome=="Died")` or `r round(VVbasemort*100, 1)`% died. An estimated benefit of 15% absolute mortality reduction suggests that at the very least `r VVbenefit` extra Territorians would be alive at each year's end with access to ECMO facilities. At a cost of $20,000 per VV ECMO run this equates to `r as.integer(costperVVbenefit)` dollars per survivor, well within common cost:benefit criteria. 
 
+## Inferential problems for ECMO need
+
 There may be patients who survived but with impairments that could have been prevented with more aggressively lung protective ventilation. 
 
 There may be patients who were considered unsalvageable and were not even referred for consideration of ICU. There may be patients who are listed with one top line diagnosis but who also had a condition amenable to mechanical circulatory or ventilatory support. Registry data is unreliable on the inclusions and exclusions which pertain at the moment of considering referral. 
@@ -686,92 +656,35 @@ As a starting point, we chose set of criteria which reflect the experience of EL
         - Died or transferred to another ICU 
         - No chronic conditions preventing VV ECMO treatment, and age <=65
 
-This represents the best available evidence on which to base the decision. 
+This represents the best available evidence on which to base the decision. Given the apparent justification by these numbers it is not recommended to spend time and energy on collecting more exact summaries which are likely to increase the confidence in the recommendation, but instead to proceed with feasibility discussions. 
 
 ## Missed Sepsis 
 Missed sepsis is a politically important item. A pathway has been developed for this. Identification of cases may follow the same history seen in VAP and other politically sensitive system diagnoses. One simple KPI relates to patients admitted to ICU with a diagnosis of sepsis from the ward, within 48h of admission to hospital.
 
 ```{r missed-sepsis-numbers, echo = FALSE, message = FALSE, warning=FALSE}
 
-missed_sepsis_ROD <- APD %>%
+missed <- mutate(APD, missed_sepsis = ICU_ADM_DTM-HOSP_ADM_DTM>172800 & APACHEDiagnosis %in% c(501:504, 212))
+
+missed_sepsis_age <- missed %>%
+   ggplot(aes(y=AgeICU, x=missed_sepsis))+
+   geom_boxplot()
+
+missed_sepsis_age
+
+missed_sepsis_ROD <- missed %>%
    ggplot(aes(y=ANZROD, x=missed_sepsis))+
    geom_violin()
 
 missed_sepsis_ROD
 
-missed_sepsis_table <- APD %>% group_by(missed_sepsis) %>%
-   summarise(n = n(),
-             ANZROD = round(mean(ANZROD, na.rm=T), 2),
-             Mortality = round(mean(DiedICU=="Died", na.rm=T), 3),
-             "ICU LOS" = round(mean(ICULOS, na.rm=T)/24, 2),
-             Age = round(median(AgeICU), 2))
-             
-kable(missed_sepsis_table)
-yearsofblock <- tibble(year = seq(2008, 2020, 1), Admissions = c(776, 808, 917, 901, 950, 956, 915, 939, 958, 1158, 1104, 1121, 1060), `Exit Block` = c(180, 329, 351, 459, 439, 402, 319, 746, 737, 624, 1184, 889, 771))
-
-ggplot(data=yearsofblock) +
-    geom_line(aes(x = year, y = `Exit Block`), colour = "red") +
-    geom_line(aes(x=year, y=Admissions), colour = "black") +
-    geom_smooth(method = "lm", aes(x = year, y = `Exit Block`), colour = "red") + 
-    geom_smooth(method = "lm", aes(x=year, y=Admissions), colour = "black") +
-    labs(title = "Admissions (black) vs exit block days", y = "Exit Block in days / Admissions per year")
-
-#anova(lm(yearsofblock$Admissions ~ yearsofblock$year), lm(yearsofblock$`Exit Block` ~ yearsofblock$year))
-
-#whys <- tibble(
-#    causes = c("Total Beds", "Ward delays in DC", "Priority Allocation", "Ward skill shortage", "ICU staffing inflexible", "Communication about exit", "Infection Isolation", "ICU delays plans", "Top-down culture"),
-#    votes = c(24, 15, 12, 9, 7, 6, 5, 4, 3)
-#    )
-
-#exitpareto1 <- ggplot(data=whys, aes(x = reorder(causes, desc(votes)))) +
-#    geom_line(mapping = aes(x=reorder(causes, desc(votes)), y = cumsum(desc(-votes)), group = 1)) + 
-#    geom_col(aes(x=reorder(causes, desc(votes)), y = votes, fill = causes)) +
-#    scale_fill_brewer() +
-#    labs(title = "Pareto chart of opinions on ICU exit block", x = "causes", y = "proportion") +
-#    theme(axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=0.75))
-
-#exitpareto1
-
-#library(qcc)
-#pareto.chart(whys$votes)
-```
-
-As summarised in the table, there were `r sum(APD$missed_sepsis==TRUE)` admissions in this category, of `r length(unique(APD$SLK)[APD$missed_sepsis==TRUE])` individuals. The predicted mortality in this sub-cohort was `r round(mean(APD$ANZROD[APD$missed_sepsis==TRUE]), 3)`. The actual mortality in ICU was `r round(mean(APD$ICUOutcome[APD$missed_sepsis==TRUE]=="Died",na.rm=T),3)`, and hospital mortality was `r round(mean(APD$HospitalOutcome[APD$missed_sepsis==TRUE]=="Died",na.rm=T),3)`.
-
-## Demand management for exit block 
-
-Although it may be desirable to improve discharge processes and efficiency, it may be simpler to provide a safe space to care for these patients outside of ICU. Once suggestion relates to lower risk elective surgical patients, grouped in the first case by elective procedure. 
-
-```{r low-risk-numbers, echo = FALSE, message = FALSE, warning=FALSE}
-procedureprobs <- APD %>% 
-    filter(!is.na(APACHESubcode)) %>% 
-    group_by(APACHESubcode) %>% 
-    mean(DiedICU, na.rm=T)
-
-lowriskproc <- APD %>% 
-   filter(APACHESubcode %in% c(1203.02, 1205.01, 2201.05)) 
-surgnointervention <- APD %>% 
-   filter(ElectiveSurg == TRUE) %>% 
-   filter(nointervention == TRUE)
+missed_sepsis_table <- missed %>% 
+   group_by(missed_sepsis) %>% 
+   summarise(ANZROD = mean(ANZROD, na.rm=T),
+             Mortality = mean(DiedICU=="Died"),
+             ICUday = mean(ICULOS, na.rm=T)/24,
+             Age = median(AgeICU))
 
 ```
 
-There were `r nrow(lowriskproc)` patients with lower risk procedures, with an average length of stay of `r round(mean(lowriskproc$ICULOS, na.rm=T)/24, 2)` days (and an average exit block of `r round(mean(lowriskproc$ExitBlockHrs, na.rm=T), 2)` hours). `r nrow(filter(lowriskproc, nointervention == TRUE))` of these patients received no ICU level intervention. Including these patients, `r nrow(surgnointervention)` elective surgical admissions involved no ICU level interventions, during their average `r round(mean(surgnointervention$ICULOS, na.rm=T)/24, 2)` days of which `r mean(surgnointervention$ExitBlockHrs, na.rm=T)` hours were exit blocked. It may not be possible to identify these low risk patients beforehand; some of their admission characteristics are summarised below. Identification of such low risk patients may indeed repay some of the required effort, given the estimated \$`r sum(surgnointervention$ICULOS, na.rm=T)/24*5330` these admissions cost.
+There were there were `r length(missed$SLK)` admissions, of `r length(unique(missed$SLK))` individuals. The predicted mortality in this sub-cohort was `r round(mean(missed$ANZROD), 3)`. The actual mortality in ICU was `r round(mean(missed$ICUOutcome=="Died",na.rm=T),3)`, and hospital mortality was `r round(mean(missed$HospitalOutcome=="Died",na.rm=T),3)`.
 
-```{r nointervention.anzrod, echo = FALSE, message = FALSE, warning=FALSE}
-surgnointer.table <- APD %>% 
-   filter(ElectiveSurg == TRUE) %>% 
-   group_by("Free from intervention" = nointervention) %>% 
-   summarise(n = n(),
-             Age = round(median(AgeICU, na.rm = T), 2),
-             ANZROD = round(mean(ANZROD, na.rm = T), 2),
-             APACHE = round(mean(AP3score, na.rm = T), 2),
-             Female = round(mean(Sex=="Female"), 2))
-
-noneed_ANZROD <- APD %>%
-   ggplot(aes(y=ANZROD, x=nointervention))+
-   geom_violin() +
-   labs(x = "Intervention free")
-
-kable(surgnointer.table)
-```
