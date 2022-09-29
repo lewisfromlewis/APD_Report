@@ -58,6 +58,7 @@ options(htmltools.dir.version = FALSE)
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
 
 APD_source <- paste0("./APD_", params$year, ".csv")
+#APD_source <- "RDHAPD_2022_08.csv"
 
 cols_APD <- cols(
    APD_Inclusion = col_character(),
