@@ -57,8 +57,8 @@ options(htmltools.dir.version = FALSE)
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
 
-APD_source <- paste0("./APD_", params$year, ".csv")
-#APD_source <- "RDHAPD_2022_08.csv"
+#APD_source <- paste0("./APD_", params$year, ".csv")
+APD_source <- "RDHAPD_2022_08.csv"
 
 cols_APD <- cols(
    APD_Inclusion = col_character(),
@@ -390,7 +390,7 @@ It is not always possible to reduce the per-patient staff ratios if the number o
 ]. Processes of care and planning may also be disrupted due to ICU exit block, due to lack of home team access or more subtle lack of engagement. There may also be more direct interference with processes of care if patients are transferred to other locations where other systems are used. This is exacerbated if the patients are transferred during periods of lower staffing intensity, or where many patients are discharged from ICU at once to provide for urgent admissions. These possibilities are discussed below.
 
 ```{r exit.block, echo=FALSE, message = FALSE, warning=FALSE}
-exit_block <- APD %>% 
+exit_block_strata <- APD %>% 
    group_by("Elective" = PlannedAdm) %>% 
    summarise("n" = n(),
              "Total days" = sum(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "day"), na.rm=T),
@@ -399,7 +399,7 @@ exit_block <- APD %>%
              "3rd quartile" = quantile(time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour"), na.rm=T, probs=0.75)
                 ) 
 
-kable(exit_block)
+kable(exit_block_strata)
 ```
 
 We assume an ICU bed day costs \$5320 more than a ward bed. A naive cost reduction estimate is \$`r sum(time_length(APD$ICU_DIS_DTM - APD$ICU_DIS_DEC_DTM, unit = "day"), na.rm=T)*5330` over this period, if all exit block were removed. Take a quick glance at the margin plot to check if the figures for discharge delay make sense.
