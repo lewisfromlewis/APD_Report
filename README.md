@@ -23,25 +23,25 @@ In the base scenario we start with an introduction describing the total patient 
 
 Because it doesn't contain any patient information, it can be shared freely. New analyses, scripts and visualisations can be practiced on it, and fingers crossed they will work on the real output from COMET. There are a couple of tips: 
 
-1 Many columns have been removed because they weren't important. It would take a long time to generate something exactly the same form as the input dataset, because of blah blah reasons about dates and a few other formats, and the rules needed to allow dates to make sense. 
+1. Many columns have been removed because they weren't important. It would take a long time to generate something exactly the same form as the input dataset, because of blah blah reasons about dates and a few other formats, and the rules needed to allow dates to make sense. 
 
-2 You probably don't need all the columns but if you find you do (for example you need to work on manipulating timespans, and if so may you find peace), could I suggest using a further step instead of using synthpop for all of the work? An example is given with start dates for ICU and Hospital, feel free to adapt and adopt. 
+2. You probably don't need all the columns but if you find you do (for example you need to work on manipulating timespans, and if so may you find peace), could I suggest using a further step instead of using synthpop for all of the work? An example is given with start dates for ICU and Hospital, feel free to adapt and adopt. 
 
-3 The process hasn't gone into great detail about dependencies between values (partly because that's not well explored in any ICU set, partly because it's heaps of work for a small audience). If you're keen you could use `synthpop::syn(rules())` to create some, so that you don't have the mean of men's heights being less than the mean of women's, and so on.
+3. The process hasn't gone into great detail about dependencies between values (partly because that's not well explored in any ICU set, partly because it's heaps of work for a small audience). If you're keen you could use `synthpop::syn(rules())` to create some, so that you don't have the mean of men's heights being less than the mean of women's, and so on.
 
 ## Liaison service 
 It will be possible to link the APD data to ward reviews either 
-1 before ICU admission 
-2 after ICU discharge 
-3 for High Flow oxygen prescription 
-4 for clinical or physiological concerns, without ICU admission 
+1. before ICU admission 
+2. after ICU discharge 
+3. for High Flow oxygen prescription 
+4. for clinical or physiological concerns, without ICU admission 
 
 For these situations the questions to be answered are: how many reviews do patients receive, and what interventions are applied to them at those review times? Is the liaison service used as a capacitance feature for ICU load? 
-1 What is the liaison resource use before ICU admission, and does repeated referral relate to outcomes? 
-2 Is liaison resource use related to patient features before admission to ICU?
-3 Is liaison resource use without ICU admission related to bed pressure (Intensity weighted bed occupancy) in ICU?
-4 Is liaison resource use after ICU related to length of admission, admission severity, or other patient factors?
-5 How often does liaison review detect missing elements from agreed pathways, and result in changes to treatment? 
+1. What is the liaison resource use before ICU admission, and does repeated referral relate to outcomes? 
+2. Is liaison resource use related to patient features before admission to ICU?
+3. Is liaison resource use without ICU admission related to bed pressure (Intensity weighted bed occupancy) in ICU?
+4. Is liaison resource use after ICU related to length of admission, admission severity, or other patient factors?
+5. How often does liaison review detect missing elements from agreed pathways, and result in changes to treatment? 
 
 Tasks for Liaison: 
 GCP
