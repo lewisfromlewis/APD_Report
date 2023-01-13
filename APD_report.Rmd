@@ -3,10 +3,10 @@ title: "APD report"
 author: "Lewis Campbell"
 date: "`r Sys.Date()`"
 output:
+  tufte::tufte_html: default
   tufte::tufte_handout:
     citation_package: natbib
     latex_engine: xelatex
-  tufte::tufte_html: default
   tufte::tufte_book:
     citation_package: natbib
     latex_engine: xelatex
@@ -14,8 +14,8 @@ subtitle: Template for data reading and cleaning from the ANZICS APD
 bibliography: null
 link-citations: yes
 params:
-   year: 2021
-   data: APD_2021.csv
+   year: 2022
+   data: APD_2022.csv
    output-file: !r paste0("APD-", Sys.Date(), ".pdf")
 ---
 
@@ -57,8 +57,8 @@ options(htmltools.dir.version = FALSE)
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
 
-#APD_source <- paste0("./APD_", params$year, ".csv")
-APD_source <- "RDHAPD_2022_08.csv"
+APD_source <- paste0("./APD_", params$year, ".csv")
+#APD_source <- "RDHAPD_2022_08.csv"
 
 cols_APD <- cols(
    APD_Inclusion = col_character(),
@@ -121,7 +121,8 @@ cols_APD <- cols(
    AP2score = col_double(),
    AP3score = col_double(),
    AP3ROD = col_double(),
-   ANZROD = col_double(),
+   `ANZROD 2015` = col_double(),
+   `ANZROD 2020` = col_double(),
    ICUAdmission = col_character(),
    ReadmissionEpisode = col_double(),
    ElectiveSurg = col_character(),
@@ -239,7 +240,8 @@ APD <- read_csv(file = APD_source, na = c("", "NA", "NULL"), col_types = cols_AP
 # The use of Yes and No for logical vectors. Hard to fix these. The basic command is recode(illogical_string, `Yes` = TRUE, `No` = FALSE). This command uses a pipe %>% to send the object to the next function, then mutate() to change the content of a column. It's scoped with across(), to mutate across all the named columns, 
 
 APD <- APD %>% 
-   mutate(across(c(Indigenous, ElectiveSurg:METAdm, AfterhoursDis, Delirium:Leukaemia, ECMO:INVDayOne, CardArrest, Intubated, FreeVoiding), ~recode(., `Yes` = TRUE, `No` = FALSE, `Contraindicated` = TRUE, `NotIndicated` = TRUE, `Died` = TRUE, `Survived` = FALSE, .default = NA))) %>% mutate(PF = AP3PO2/AP3FIO)
+   mutate(across(c(Indigenous, ElectiveSurg:METAdm, AfterhoursDis, Delirium:Leukaemia, ECMO:INVDayOne, CardArrest, Intubated, FreeVoiding), ~recode(., `Yes` = TRUE, `No` = FALSE, `Contraindicated` = TRUE, `NotIndicated` = TRUE, `Died` = TRUE, `Survived` = FALSE, .default = NA))) %>% mutate(PF = AP3PO2/AP3FIO) %>% 
+    rename(ANZROD = `ANZROD 2015`)
 
 # Manipulates the data for the period directly. Use the commented-out filter (by removing the hash before the %>% signs) to return only the ones where there were any actual deaths.
 
@@ -325,7 +327,7 @@ Weight_moves_plot <- ggplot(Patient_movements, mapping = aes(x = Time))
 
 ```
 
-```{r Moves.plot, fig.margin = TRUE, fig.cap = "Instantaneous occupancy over the period.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE, warning=FALSE, echo = FALSE}
+```{r Moves.plot, fig.margin = TRUE, fig.cap = "Instantaneous occupancy over the period.", fig.width=3.5, fig.height=3.5, cache=FALSE, message=FALSE, warning=FALSE, echo = FALSE}
 Moves_plot + 
    geom_line(colour = "darkgray") +
    theme(panel.background = element_blank()) +
@@ -406,7 +408,7 @@ We assume an ICU bed day costs \$5320 more than a ward bed. A naive cost reducti
 
 More sensibly, if we prevented only the upper 12.5\% of the exit blocked patients, those with the longest time of exit block, then \$`r sum(APD$ExitBlockHrs[APD$ExitBlockHrs>(quantile(APD$ExitBlockHrs, 0.875, na.rm=T))], na.rm=T)*5330/24` would be saved for the healthcare system during this period alone.
 
-```{r check.exit.block, message = FALSE, fig.margin = TRUE, fig.cap = "Check the exit block numbers make sense.", fig.width=3.5, fig.height=3.5, cache=TRUE, message=FALSE, warning=FALSE, echo = FALSE}
+```{r check.exit.block, message = FALSE, fig.margin = TRUE, fig.cap = "Check the exit block numbers make sense.", fig.width=3.5, fig.height=3.5, cache=FALSE, message=FALSE, warning=FALSE, echo = FALSE}
 ggplot(data=APD, aes(PatientId, ExitBlockHrs/24)) + geom_point() + labs(x = NULL, y="DC delay in days")
 ```
 
@@ -453,6 +455,7 @@ In sympathy with the language of patient journeys, a readmission can be viewed a
 There are many ways to describe missingness. This is a big topic but the basic difference is between entries that are missing at random, and those where the missingness itself represents a process. It's difficult to tell from a single dataset which is happening, and topic knowledge is needed. We get a report on the data quality of the essential items, but not on the whole dataset. Here is a snapshot of the proportion of missingness in each variable.
 
 ```{r Missing.plot, fig.margin = TRUE, fig.cap = "APD variables ordered by proportion missing over the period.", message=FALSE, warning=FALSE, echo = FALSE}
+
 missvarsplot <- naniar::gg_miss_var(APD,  show_pct = TRUE) +
    theme(axis.text.y=element_blank())
 
