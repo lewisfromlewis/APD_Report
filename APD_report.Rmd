@@ -35,6 +35,8 @@ options(htmltools.dir.version = FALSE)
 ```{r download, echo=FALSE, message=FALSE}
 # There is one way to get the data and one only. The content of POST on developer tools in Firefox when using the COMET front end is https://comet.anzics.com.au/api/v1/reports/runreport. Enter the variables COMETUSR and COMETPWD in the console *outside of this script* to avoid breaches.
 
+#Reportdatefrom <- as.Posixct(2021-01-01T00:00:00+11:00)
+#Reportdateto <- as.Posixct(2021-01-30T00:00:00+11:00)
 #POST(
 #    url = "https://comet.anzics.com.au/api/v1/reports/runreport",
 #    authenticate(user = COMETUSR, password = COMETPWD),
@@ -42,8 +44,8 @@ options(htmltools.dir.version = FALSE)
 #    body = list(
 #        type = "ANZICS.Domain.Comet.Reporting.ReportDefinition, ANZICS.Domain",
 #        careUnits = "57e139c6-cbec-e611-80c8-005056a105bd",
-#        icuFromAdmissionDateTime = "2021-01-01T00:00:00+11:00",
-#        icuToAdmissionDateTime = "2021-01-30T00:00:00+11:00",
+#        icuFromAdmissionDateTime = "Reportdatefrom",
+#        icuToAdmissionDateTime = "Reportdateto",
 #        report = "1"
 #    )
 #)
@@ -238,6 +240,7 @@ APD <- read_csv(file = APD_source, na = c("", "NA", "NULL"), col_types = cols_AP
 # and check for the numbers of certain diagnoses: head injury with
 #sum(APD$APACHEDiagnosis %in% c("601" , "1601"))
 # The use of Yes and No for logical vectors. Hard to fix these. The basic command is recode(illogical_string, `Yes` = TRUE, `No` = FALSE). This command uses a pipe %>% to send the object to the next function, then mutate() to change the content of a column. It's scoped with across(), to mutate across all the named columns, 
+# ANZROD IS A PROBLEM, with the changed prediction model and the insisting on reporting it with a space in the variable name, and the failure to capture `ANZROD 2020` for a large number of patients. This is a big mess. So I'm still using ANZROD 2015, and trying to track down where the problems are so we can report adequately.
 
 APD <- APD %>% 
    mutate(across(c(Indigenous, ElectiveSurg:METAdm, AfterhoursDis, Delirium:Leukaemia, ECMO:INVDayOne, CardArrest, Intubated, FreeVoiding), ~recode(., `Yes` = TRUE, `No` = FALSE, `Contraindicated` = TRUE, `NotIndicated` = TRUE, `Died` = TRUE, `Survived` = FALSE, .default = NA))) %>% mutate(PF = AP3PO2/AP3FIO) %>% 
