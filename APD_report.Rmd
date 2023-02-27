@@ -15,7 +15,7 @@ bibliography: null
 link-citations: yes
 params:
    year: 2022
-   data: APD_2022.csv
+   data: FY2021.csv
    output-file: !r paste0("APD-", Sys.Date(), ".pdf")
 ---
 
@@ -35,8 +35,8 @@ options(htmltools.dir.version = FALSE)
 ```{r download, echo=FALSE, message=FALSE}
 # There is one way to get the data and one only. The content of POST on developer tools in Firefox when using the COMET front end is https://comet.anzics.com.au/api/v1/reports/runreport. Enter the variables COMETUSR and COMETPWD in the console *outside of this script* to avoid breaches.
 
-#Reportdatefrom <- as.Posixct(2021-01-01T00:00:00+11:00)
-#Reportdateto <- as.Posixct(2021-01-30T00:00:00+11:00)
+#Reportdatefrom <- as.Posixct("2021-01-01T00:00:00+11:00")
+#Reportdateto <- as.Posixct("2021-01-30T00:00:00+11:00")
 #POST(
 #    url = "https://comet.anzics.com.au/api/v1/reports/runreport",
 #    authenticate(user = COMETUSR, password = COMETPWD),
@@ -553,6 +553,15 @@ Because we can compare the risk of death, we can then compare the risk of death 
 The SMR by month in this period is listed below. Remember a value of **less than 1** for SMR means that fewer people died than expected. Remember as well that ANZROD predicts hospital death, and so the numbers are higher than for ICU deaths. The ratio of predicted to observed deaths across the entire period was `r round(sum(APD$HospitalOutcome=="Died", na.rm=T)/sum(APD$ANZROD, na.rm=T), 3)`.
 
 ```{r SMR, echo=FALSE, message = FALSE}
+SMR <- APD %>% 
+    select(AP3ROD, HospitalOutcome) %>% 
+    summarise(
+      Patients = n(),
+      Predicted = round(mean(AP3ROD, na.rm=T), 3), 
+      Observed = round(mean(HospitalOutcome=="Died", na.rm=T),3),
+      SMR = round(Observed/Predicted, 3)
+      ) 
+
 SMRmonth <- APD %>% 
    select(ANZROD, HospitalOutcome, ICU_ADM_DTM) %>% 
    mutate(Month = month(ICU_ADM_DTM)) %>% 
