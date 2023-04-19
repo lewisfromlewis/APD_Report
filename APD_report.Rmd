@@ -58,8 +58,8 @@ options(htmltools.dir.version = FALSE)
 # Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified, including the eccentrically named Trachestomy. If one column parses properly in csv and Excel it can be left out, but just...don't.
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
-
-APD_source <- paste0("./APD_", params$year, ".csv")
+APD_source <- "APD_2023_Apr.csv"
+#APD_source <- paste0("./APD_", params$year, ".csv")
 #APD_source <- "RDHAPD_2022_08.csv"
 
 cols_APD <- cols(
@@ -338,7 +338,50 @@ Moves_plot +
         y = "Occupancy") 
 ```
 
-## Intensity weighted occupancy 
+## Where did they go? 
+
+Some of the patients in this report will not have left hospital; sometimes they will have been sent to another hospital and will still be there, or might have gone home from there and somehow they will not be linked up. 
+
+In this period, `r sum(APD$HospitalOutcome=='OtherAcuteHospital', na.rm=T)` patients were transferred out to another acute hospital. 
+
+## Who were they? 
+
+The age breakdown is in the table below, with graphical representation of the same data in the graph.
+
+```{r demographics}
+# Table of age brackets
+
+demographics_decades <- APD %>% 
+    select(AgeICU, ElectiveSurg, Indigenous) %>% 
+    mutate(AGEquintile = ntile(AgeICU, 5)) %>% 
+    mutate(agegp = cut(AgeICU, breaks = c(0,19, 29, 39, 49, 59, 69, 79, 89, 115))) %>% 
+    mutate(pctInd = sum(Indigenous==TRUE/sum(AgeICU>=0)))
+
+demographicstable <- APD %>% 
+   select(AgeICU, ElectiveSurg, Indigenous) %>% 
+   mutate(AGEquintile = ntile(AgeICU, 5)) %>% 
+   group_by(Indigenous, AGEquintile) %>% 
+   summarise(
+      Patients = n())
+
+demographicsbars <- ggplot(demographics_decades %>% group_by(Indigenous)) + 
+    geom_bar(aes(x=agegp, fill = Indigenous)) +
+    ggtitle("Proportion of each age quintile made up by Indigenous people") +
+    xlab("Age brackets in decades") +
+    theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+```{r demographics-table, fig.fullwidth = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
+kable(demographicstable)
+```
+
+```{r demographics-bars, fig.fullwidth = TRUE, echo = FALSE, message = FALSE, warning=FALSE}
+demographicsbars
+```
+
+In total, `r round(sum(APD$Indigenous, na.rm = T)/length(APD$Indigenous)*100,0)`% of the admissions were listed as Indigenous; the overall median age was `r median(APD$AgeICU, na.rm=T)`, and for Indigenous patients was `r median(APD$AgeICU[APD$Indigenous==TRUE], na.rm=T)`. 
+
+## Were they sick? 
 
 `r newthought('The admission rate tells part of the story')`, but sicker patients need more intense care. The severity score on admission tells a little more of the story. Each bar is an individual patient admission. The vertical height of the bars is equal to the predicted risk of death on admission, and the horizontal width is the length of the admission. Transparency is set at 0.1 to allow overlapping bars to be seen. This gives a good qualitative view of how many very sick patients were admitted at a time, or "Intensity weighted bed occupancy". The rest of the story about treatment intensity can only be told with daily data, which we don't compile. 
 
