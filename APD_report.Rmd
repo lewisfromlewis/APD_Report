@@ -58,7 +58,7 @@ options(htmltools.dir.version = FALSE)
 # Having the download as an Excel file is painful, because of lots of things. The worst is Excel's habit of turning various columns into character columns, silently; such as all the numeric columns here. Exporting (Save As...) from Excel to .csv makes some of these go away, but introduces some other problems, again because Excel has got up to some funny japes behind the scenes. The column types pretty much all have to be exhaustively specified, including the eccentrically named Trachestomy. If one column parses properly in csv and Excel it can be left out, but just...don't.
 
 # First go to https://comet.anzics.com.au, log in and select the download for the period you require. Save it, then open it. This time "Save as ..." and ensure the type is .csv (and if it asks, save with UTF-8 encoding, never mind what that means for now). Plug whatever you call it into APD_source below.
-APD_source <- "APD_2023_Apr.csv"
+APD_source <- "COMET-Extract-APD.csv"
 #APD_source <- paste0("./APD_", params$year, ".csv")
 #APD_source <- "RDHAPD_2022_08.csv"
 
@@ -267,6 +267,8 @@ APD <- APD %>%
    mutate(ExitBlockHrs = time_length(ICU_DIS_DTM - ICU_DIS_DEC_DTM, unit = "hour")) %>% 
    mutate(missed_sepsis = ICU_ADM_DTM-HOSP_ADM_DTM>172800 & APACHEDiagnosis %in% c(501:504, 212)) %>% 
    mutate(nointervention = Inotropes ==FALSE & InvVent ==FALSE & INVDayOne == FALSE & NIVVent == FALSE & RenalRep ==FALSE & Trachestomy == FALSE)
+
+SPICY <- APD %>% filter(INVDayOne=="Yes" & INV_Hrs>48 & AgeICU>=65 & TreatmentGoals=="Full Active Treatment" & ICUAdmission == "First" & Frailty %in% c("Well", "ManagingWell", "MildlyFrail", "ModeratelyFrail"))
 
 ```
 
