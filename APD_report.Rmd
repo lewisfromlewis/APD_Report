@@ -268,7 +268,7 @@ APD <- APD %>%
    mutate(missed_sepsis = ICU_ADM_DTM-HOSP_ADM_DTM>172800 & APACHEDiagnosis %in% c(501:504, 212)) %>% 
    mutate(nointervention = Inotropes ==FALSE & InvVent ==FALSE & INVDayOne == FALSE & NIVVent == FALSE & RenalRep ==FALSE & Trachestomy == FALSE)
 
-SPICY <- APD %>% filter(INVDayOne=="Yes" & INV_Hrs>48 & AgeICU>=65 & TreatmentGoals=="Full Active Treatment" & ICUAdmission == "First" & Frailty %in% c("Well", "ManagingWell", "MildlyFrail", "ModeratelyFrail"))
+SPICY <- APD %>% filter(INVDayOne=="TRUE" & INV_Hrs>48 & AgeICU>=65 & TreatmentGoals=="Full Active Treatment" & ICUAdmission == "First" & Frailty %in% c("Well", "ManagingWell", "MildlyFrail", "ModeratelyFrail"))
 
 ```
 
